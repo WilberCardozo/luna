@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>El cielo de Michi</title>
+<title>Luna</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
@@ -93,7 +93,7 @@ body {
 /* En preserve-3d el plano de .world (z=0) tapa a la capa del cielo (z<0) al tocar */
 .world { position: absolute; inset: 0; transform-style: preserve-3d; pointer-events: none; }
 .layer { position: absolute; inset: 0; }
-.layer.far, .layer.mid { inset: -18%; pointer-events: none; }
+.layer.far, .layer.mid { inset: -25%; pointer-events: none; }
 .layer.front { pointer-events: none; }
 
 .bgstar {
@@ -144,14 +144,26 @@ h1 {
 }
 .count { margin: 8px 0 0; font-size: .95rem; color: var(--ink-soft); }
 
-/* Constelación */
-.sky {
+/* Constelación: el cielo ocupa toda la pantalla y se recorre arrastrando.
+   .sky-frame marca la zona "de casa" (sobre la gata) y define la escala. */
+.sky-frame {
   position: absolute;
   left: 0; right: 0;
   top: 132px;
   bottom: calc(var(--roof-h) + var(--cat-w) * 1.02);
+  visibility: hidden;
+  pointer-events: none;
 }
-.sky svg { width: 100%; height: 100%; display: block; overflow: visible; }
+#constellation { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.clabel {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-style: italic;
+  font-size: 5px;
+  fill: var(--ink-soft);
+  opacity: .6;
+  text-anchor: middle;
+  pointer-events: none;
+}
 .edge { stroke: var(--guide); stroke-width: .35; stroke-dasharray: 1 1.6; stroke-linecap: round; }
 .edge.on { stroke: var(--line); stroke-width: .4; stroke-dasharray: none; }
 .slot { fill: var(--slot); }
@@ -292,6 +304,24 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .preview[hidden] { display: none; }
 .form-msg { min-height: 1.3em; margin: 12px 0 0; font-size: .9rem; color: var(--danger); }
 
+.home {
+  position: absolute;
+  z-index: 6;
+  right: 16px;
+  bottom: 20px;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 243, 207, .45);
+  border-radius: 50%;
+  background: rgba(20, 18, 50, .55);
+  color: var(--star);
+  cursor: pointer;
+  transition: opacity .3s, transform .3s;
+}
+.home[hidden] { display: grid; opacity: 0; transform: scale(.8); pointer-events: none; }
+.home svg { width: 20px; height: 20px; }
+
 .toast {
   position: absolute;
   z-index: 6;
@@ -324,8 +354,8 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
     <div class="layer mid" id="mid" aria-hidden="true"></div>
 
     <div class="layer sky-layer" id="skyLayer">
-      <div class="sky">
-        <svg id="constellation" viewBox="-32 -14 164 124" preserveAspectRatio="xMidYMid meet" aria-label="Constelación de recuerdos">
+      <div class="sky-frame" id="skyFrame"></div>
+        <svg id="constellation" preserveAspectRatio="xMidYMid meet" aria-label="Constelaciones de recuerdos">
           <defs>
             <radialGradient id="glow">
               <stop offset="0" style="stop-color: var(--star); stop-opacity: .95"/>
@@ -335,7 +365,6 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
           </defs>
           <g id="layer"></g>
         </svg>
-      </div>
     </div>
 
     <div class="layer front" id="front">
@@ -500,6 +529,9 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
   </header>
 
   <button class="add" id="addBtn" type="button">Agregar un recuerdo</button>
+  <button class="home" id="homeBtn" type="button" aria-label="Volver al cielo de Michi" title="Volver al centro" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.6 6.2 6.7.5-5.1 4.4 1.6 6.5L12 16.6l-5.8 3.5 1.6-6.5-5.1-4.4 6.7-.5z" fill="currentColor"/></svg>
+  </button>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </main>
 
@@ -552,14 +584,50 @@ const STORE_KEY = "cielo-de-michi:recuerdos:v1";
 const NS = "http://www.w3.org/2000/svg";
 const PERSPECTIVE = 1100;
 
-const POINTS = [
-  [27,5],[36,16],[52,16],[61,4],[66,24],[58,37],[67,60],[65,92],[42,95],
-  [24,84],[19,58],[28,36],[21,23],[78,93],[90,82],[88,66],[37,25],[51,25]
+/* Cada constelación: desplazamiento [dx, dy], puntos y uniones.
+   Los recuerdos llenan los puntos en orden: primero Michi sentada, luego las demás. */
+const CONSTELLATIONS = [
+  { name: "", at: [0, 0],             // Michi sentada (la de siempre)
+    points: [[27,5],[36,16],[52,16],[61,4],[66,24],[58,37],[67,60],[65,92],[42,95],
+             [24,84],[19,58],[28,36],[21,23],[78,93],[90,82],[88,66],[37,25],[51,25]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,0],
+            [7,13],[13,14],[14,15]] },
+  { name: "Carita de Michi", at: [-96, 8],
+    points: [[10,0],[24,12],[46,12],[60,0],[63,22],[70,38],[55,56],[35,63],[15,56],[0,38],[7,22],
+             [24,30],[46,30],[35,42]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,0]] },
+  { name: "Michi dormida", at: [122, 12],
+    points: [[0,40],[4,28],[8,16],[15,24],[22,13],[30,22],[50,13],[72,16],[88,30],[93,48],[82,60],
+             [56,64],[30,62],[10,54],[76,70],[48,75],[24,70]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,13],[13,0],
+            [10,14],[14,15],[15,16]] },
+  { name: "Michi paseando", at: [-8, -150],
+    points: [[0,0],[6,18],[16,30],[40,28],[62,30],[70,18],[72,6],[78,14],[84,4],[88,16],[94,24],
+             [84,32],[72,40],[70,62],[60,44],[34,46],[26,62],[18,42]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,13],
+            [13,14],[14,15],[15,16],[16,17],[17,2]] },
+  { name: "Su huellita", at: [-112, -122],
+    points: [[10,30],[20,24],[30,30],[28,40],[12,40],[2,18],[12,6],[28,6],[38,18]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,0]] },
+  { name: "Su pescadito", at: [124, -110],
+    points: [[0,12],[17,1],[36,2],[50,12],[36,22],[17,23],[65,1],[65,23],[11,9]],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[3,6],[6,7],[7,3]] }
 ];
-const EDGES = [
-  [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,12],[12,0],
-  [7,13],[13,14],[14,15]
-];
+const POINTS = [], EDGES = [], LABELS = [];
+CONSTELLATIONS.forEach(c => {
+  const base = POINTS.length;
+  c.points.forEach(([x, y]) => POINTS.push([x + c.at[0], y + c.at[1]]));
+  c.edges.forEach(([a, b]) => EDGES.push([a + base, b + base]));
+  if (c.name) {
+    const xs = c.points.map(p => p[0]), ys = c.points.map(p => p[1]);
+    LABELS.push({ text: c.name, x: c.at[0] + (Math.min(...xs) + Math.max(...xs)) / 2, y: c.at[1] + Math.max(...ys) + 9 });
+  }
+});
+const HOME = [50, 48];                      // centro de Michi sentada
+const SKY = {
+  minX: Math.min(...POINTS.map(p => p[0])), maxX: Math.max(...POINTS.map(p => p[0])),
+  minY: Math.min(...POINTS.map(p => p[1])), maxY: Math.max(...POINTS.map(p => p[1]))
+};
 
 document.getElementById("title").textContent = CONFIG.name;
 document.title = "El cielo de " + CONFIG.name;
@@ -615,13 +683,13 @@ function hash(str) {
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
-function extraPos(id) {
+function extraPos(id) {                   // recuerdos de sobra: repartidos por todo el cielo
   const h = hash(id);
-  const side = h & 1;
-  const x = side ? 104 + (h % 24) : -28 + ((h >> 3) % 24);
-  const y = -8 + ((h >> 7) % 108);
+  const x = SKY.minX + (h % 1000) / 1000 * (SKY.maxX - SKY.minX);
+  const y = SKY.minY + ((h >>> 10) % 1000) / 1000 * (SKY.maxY - SKY.minY);
   return [x, y];
 }
+const starPos = (m, i) => i < POINTS.length ? POINTS[i] : extraPos(m.id);
 function el(tag, attrs) {
   const n = document.createElementNS(NS, tag);
   for (const k in attrs) n.setAttribute(k, attrs[k]);
@@ -647,9 +715,14 @@ function render(newId) {
   POINTS.forEach((p, i) => {
     if (i >= filled) layer.appendChild(el("circle", { class: "slot", cx: p[0], cy: p[1], r: .75 }));
   });
+  LABELS.forEach(l => {
+    const t = el("text", { class: "clabel", x: l.x, y: l.y });
+    t.textContent = l.text;
+    layer.appendChild(t);
+  });
   let freshStar = null;
   list.forEach((m, i) => {
-    const [x, y] = i < POINTS.length ? POINTS[i] : extraPos(m.id);
+    const [x, y] = starPos(m, i);
     const preview = (m.text || "Una foto").slice(0, 60);
     const g = el("g", {
       class: "star" + (m.id === newId ? " fresh" : ""),
@@ -666,6 +739,7 @@ function render(newId) {
       el("circle", { class: "core", cx: x, cy: y, r: 1.05 })
     );
     g.addEventListener("click", () => openMemory(m.id));
+    g.addEventListener("focus", () => { if (!dragging) revealUnits(x, y); });
     g.addEventListener("keydown", e => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMemory(m.id); }
     });
@@ -794,6 +868,8 @@ form.addEventListener("submit", e => {
     return;
   }
   addDlg.close();
+  const [nx, ny] = starPos(m, allMemories().length - 1);
+  revealUnits(nx, ny);
   render(m.id);
   lookUp();
   toast("Una estrella nueva para " + CONFIG.name);
@@ -808,28 +884,105 @@ function toast(msg, ms = 2600) {
   toastTimer = setTimeout(() => t.classList.remove("show"), ms);
 }
 
-/* ---------- Vista 3D: mover el cielo ---------- */
+/* ---------- Vista: recorrer el cielo ---------- */
 const scene = document.getElementById("scene");
 const world = document.getElementById("world");
+const skyLayer = document.getElementById("skyLayer");
+const skyFrame = document.getElementById("skyFrame");
+const skySvg = document.getElementById("constellation");
+const homeBtn = document.getElementById("homeBtn");
 let dragging = false, dragMoved = false, startX = 0, startY = 0, gyroOn = false;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rotX = G ? G.quickTo(world, "rotationX", { duration: .9, ease: "power3" }) : () => {};
 const rotY = G ? G.quickTo(world, "rotationY", { duration: .9, ease: "power3" }) : () => {};
 
-function isInteractive(t) { return t.closest(".star, .cat, button, dialog, label, input, textarea"); }
+// view = desplazamiento (en unidades del cielo) respecto de la posición de casa
+const view = { x: 0, y: 0, tx: 0, ty: 0 };
+const geo = { s: 1, w: 0, h: 0, cx: 0, cy: 0 };
+let panStart = null, lastMove = null, vel = { x: 0, y: 0 }, rafId = 0;
+
+const bounds = () => ({
+  minX: SKY.minX + 20 - HOME[0], maxX: SKY.maxX - 20 - HOME[0],
+  minY: SKY.minY + 20 - HOME[1], maxY: Math.max(0, SKY.maxY - 40 - HOME[1])
+});
+function soft(v, lo, hi) {                // borde elástico al arrastrar más allá del límite
+  if (v < lo) return lo - (lo - v) * .35;
+  if (v > hi) return hi + (v - hi) * .35;
+  return v;
+}
+function layoutSky() {
+  geo.w = skyLayer.clientWidth; geo.h = skyLayer.clientHeight;
+  const fw = skyFrame.offsetWidth, fh = Math.max(60, skyFrame.offsetHeight);
+  geo.s = Math.min(fw / 164, fh / 124);
+  geo.cx = skyFrame.offsetLeft + fw / 2;
+  geo.cy = skyFrame.offsetTop + fh / 2;
+  applyView();
+}
+function applyView() {
+  const s = geo.s;
+  const vx = HOME[0] - geo.cx / s + view.x, vy = HOME[1] - geo.cy / s + view.y;
+  skySvg.setAttribute("viewBox", `${vx} ${vy} ${geo.w / s} ${geo.h / s}`);
+  if (G) {
+    G.set("#far", { x: -view.x * s * .06, y: -view.y * s * .06 });
+    G.set("#mid", { x: -view.x * s * .14, y: -view.y * s * .14 });
+  }
+  homeBtn.hidden = Math.hypot(view.tx, view.ty) < 45;
+}
+function tick() {
+  const k = dragging ? .5 : .12;
+  view.x += (view.tx - view.x) * k;
+  view.y += (view.ty - view.y) * k;
+  const done = !dragging && Math.abs(view.tx - view.x) < .02 && Math.abs(view.ty - view.y) < .02;
+  if (done) { view.x = view.tx; view.y = view.ty; rafId = 0; }
+  applyView();
+  if (!done) rafId = requestAnimationFrame(tick);
+}
+function kick() {
+  if (REDUCE && !dragging) { view.x = view.tx; view.y = view.ty; applyView(); return; }
+  if (!rafId) rafId = requestAnimationFrame(tick);
+}
+function panTo(dx, dy) {
+  const b = bounds();
+  view.tx = clamp(dx, b.minX, b.maxX); view.ty = clamp(dy, b.minY, b.maxY);
+  kick();
+}
+// lleva un punto del cielo a la vista si está fuera de la zona visible
+function revealUnits(ux, uy) {
+  const s = geo.s;
+  const left = HOME[0] - geo.cx / s + view.tx, top = HOME[1] - geo.cy / s + view.ty;
+  const px = (ux - left) * s, py = (uy - top) * s;
+  const m = 40, topM = skyFrame.offsetTop, botM = skyFrame.offsetTop + skyFrame.offsetHeight;
+  if (px > m && px < geo.w - m && py > topM && py < botM) return;
+  panTo(ux - HOME[0], uy - HOME[1]);
+}
+homeBtn.addEventListener("click", () => panTo(0, 0));
+addEventListener("resize", layoutSky);
+layoutSky();
+
+function isInteractive(t) { return t.closest(".cat, button, dialog, label, input, textarea"); }
 
 scene.addEventListener("pointerdown", e => {
   if (isInteractive(e.target)) return;
   dragging = true; dragMoved = false; startX = e.clientX; startY = e.clientY;
+  panStart = { x: view.tx, y: view.ty };
+  lastMove = { x: e.clientX, y: e.clientY, t: performance.now() };
+  vel = { x: 0, y: 0 };
 });
 window.addEventListener("pointermove", e => {
-  if (!G) return;
   if (dragging) {
     const dx = e.clientX - startX, dy = e.clientY - startY;
     if (Math.abs(dx) + Math.abs(dy) > 6) dragMoved = true;
-    rotY(clamp(dx * .09, -24, 24));
-    rotX(clamp(-dy * .07, -14, 14));
-  } else if (e.pointerType === "mouse" && !gyroOn) {
+    const b = bounds();
+    view.tx = soft(panStart.x - dx / geo.s, b.minX, b.maxX);
+    view.ty = soft(panStart.y - dy / geo.s, b.minY, b.maxY);
+    const now = performance.now(), dt = Math.max(1, now - lastMove.t);
+    vel.x = vel.x * .6 + (-(e.clientX - lastMove.x) / geo.s / dt) * .4;
+    vel.y = vel.y * .6 + (-(e.clientY - lastMove.y) / geo.s / dt) * .4;
+    lastMove = { x: e.clientX, y: e.clientY, t: now };
+    kick();
+    rotY(clamp(dx * .03, -8, 8));
+    rotX(clamp(-dy * .025, -6, 6));
+  } else if (G && e.pointerType === "mouse" && !gyroOn) {
     const nx = e.clientX / innerWidth - .5, ny = e.clientY / innerHeight - .5;
     rotY(nx * 10);
     rotX(-ny * 6);
@@ -838,6 +991,10 @@ window.addEventListener("pointermove", e => {
 function release() {
   if (!dragging) return;
   dragging = false;
+  // inercia: sigue deslizando un poco en la dirección del gesto
+  const idle = performance.now() - lastMove.t > 80;
+  const glide = REDUCE || idle ? 0 : 320;
+  panTo(view.tx + clamp(vel.x * glide, -90, 90), view.ty + clamp(vel.y * glide, -90, 90));
   if (G && !gyroOn) {
     G.to(world, { rotationX: 0, rotationY: 0, duration: REDUCE ? .3 : 1.8, ease: REDUCE ? "power2.out" : "elastic.out(1, 0.4)", overwrite: true });
   }
@@ -845,6 +1002,11 @@ function release() {
 }
 window.addEventListener("pointerup", release);
 window.addEventListener("pointercancel", release);
+scene.addEventListener("wheel", e => {
+  if (e.target.closest("dialog")) return;
+  e.preventDefault();
+  panTo(view.tx + e.deltaX / geo.s * .6, view.ty + e.deltaY / geo.s * .6);
+}, { passive: false });
 
 function onTilt(e) {
   if (e.gamma == null || dragging || !G) return;
@@ -1118,13 +1280,13 @@ if (G && !REDUCE) {
     .from(["#far", "#mid"], { opacity: 0, duration: 1.6, stagger: .3 }, 0)
     .from("header h1", { opacity: 0, y: 12, duration: 1 }, .3)
     .from(".phrase", { opacity: 0, duration: 1.4 }, .8)
-    .from("#layer .edge, #layer .slot", { opacity: 0, duration: .8, stagger: .025 }, 1)
-    .from("#layer .star", { opacity: 0, scale: 0, transformOrigin: "50% 50%", duration: .6, stagger: .18, ease: "back.out(2.5)" }, 1.5)
+    .from("#layer .edge, #layer .slot, #layer .clabel", { opacity: 0, duration: .8, stagger: { amount: 1 } }, 1)
+    .from("#layer .star", { opacity: 0, scale: 0, transformOrigin: "50% 50%", duration: .6, stagger: Math.min(.18, 1.6 / Math.max(1, allMemories().length)), ease: "back.out(2.5)" }, 1.5)
     .from("#catWrap", { yPercent: 70, duration: 1.4, ease: "power2.out" }, 1.1)
     .add(earTwitch, 2.6)
     .from([".count", ".add"], { opacity: 0, y: 10, duration: .8 }, 2.4)
     .add(() => {
-      toast("Arrastra el cielo para mirarlo desde otro ángulo", 3600);
+      toast("Desliza el dedo para recorrer el cielo", 3600);
       scheduleIdle();
       G.delayedCall(6, groom);
     }, 3.2);
