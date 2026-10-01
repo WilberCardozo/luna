@@ -1,19 +1,29 @@
 rules_version = '2';
 
-// Cada persona solo puede leer y escribir sus propios recuerdos:
-// users/{su uid}/memories/{id}
+// Un solo cielo, sin inicio de sesión: colección "memories".
+// Cualquiera con el enlace puede leer y agregar, pero nadie puede eliminar
+// ni reescribir un recuerdo: "borrar" solo lo marca como deleted = true,
+// así que siempre se puede recuperar desde la consola de Firebase.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid}/memories/{memoryId} {
-      allow read, delete: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['text', 'photo', 'date'])
+    match /memories/{memoryId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasOnly(['text', 'photo', 'date', 'deleted'])
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 600
         && request.resource.data.date is string
+        && request.resource.data.date.size() <= 40
+        && request.resource.data.deleted == false
         && (request.resource.data.photo == null
             || (request.resource.data.photo is string
                 && request.resource.data.photo.size() < 900000));
+
+      // solo se permite cambiar "deleted" (ocultar o volver a mostrar)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleted'])
+        && request.resource.data.deleted is bool;
+
+      allow delete: if false;
     }
   }
 }

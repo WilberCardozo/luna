@@ -308,28 +308,6 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .preview[hidden] { display: none; }
 .form-msg { min-height: 1.3em; margin: 12px 0 0; font-size: .9rem; color: var(--danger); }
 
-.account {
-  position: absolute;
-  z-index: 6;
-  top: 12px;
-  right: 12px;
-  width: 44px; height: 44px;
-  display: grid; place-items: center;
-  padding: 0;
-  border: 1px solid rgba(255, 243, 207, .45);
-  border-radius: 50%;
-  background: rgba(20, 18, 50, .55);
-  color: var(--star);
-  cursor: pointer;
-}
-.account[hidden] { display: none; }
-.account svg { width: 22px; height: 22px; }
-.account .check { display: none; }
-.account.on .check { display: inline; }
-.account.on { background: rgba(244, 215, 143, .2); }
-.account-text { margin: 0; line-height: 1.5; }
-.account-text + .account-text { margin-top: 10px; color: var(--panel-soft); font-size: .92rem; }
-
 .home {
   position: absolute;
   z-index: 6;
@@ -555,12 +533,6 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
   </header>
 
   <button class="add" id="addBtn" type="button">Agregar un recuerdo</button>
-  <button class="account" id="accountBtn" type="button" aria-label="Guardar mis recuerdos en la nube" hidden>
-    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/>
-      <path class="check" d="M9.3 13.6l2.1 2.1 3.9-4.1"/>
-    </svg>
-  </button>
   <button class="home" id="homeBtn" type="button" aria-label="Volver al centro del cielo" title="Volver al centro" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.6 6.2 6.7.5-5.1 4.4 1.6 6.5L12 16.6l-5.8 3.5 1.6-6.5-5.1-4.4 6.7-.5z" fill="currentColor"/></svg>
   </button>
@@ -575,19 +547,6 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
     <div class="dlg-actions">
       <button class="btn link" id="deleteBtn" type="button">Borrar este recuerdo</button>
       <button class="btn primary" id="closeMemory" type="button">Cerrar</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="accountDlg" aria-labelledby="accountTitle">
-  <div class="dlg-body">
-    <h2 id="accountTitle"></h2>
-    <p class="account-text" id="accountText"></p>
-    <p class="account-text" id="accountNote"></p>
-    <p class="form-msg" id="accountMsg" role="alert"></p>
-    <div class="dlg-actions">
-      <button class="btn" type="button" id="accountSecondary"></button>
-      <button class="btn primary" type="button" id="accountPrimary"></button>
     </div>
   </div>
 </dialog>
@@ -920,84 +879,15 @@ form.addEventListener("submit", e => {
   revealUnits(nx, ny);
   render(m.id);
   lookUp();
-  if (!cloud && cloudAvailable && userMemories.length === 1) {
-    toast("Guardado en este navegador. Toca la nube para no perderlo nunca.", 5000);
-  } else {
-    toast("Una estrella nueva para " + CONFIG.name);
-  }
+  toast("Una estrella nueva para " + CONFIG.name);
 });
 
-/* ---------- Cuenta y nube (el módulo de Firebase, al final, llama a window.Cielo) ---------- */
-let cloud = null;                  // { user, add(m), remove(id) } con la sesión iniciada
-let cloudAvailable = false;
-const accountBtn = document.getElementById("accountBtn");
-const accountDlg = document.getElementById("accountDlg");
-const accountMsg = document.getElementById("accountMsg");
-const accountPrimary = document.getElementById("accountPrimary");
-const accountSecondary = document.getElementById("accountSecondary");
-
-function updateAccountUI() {
-  accountBtn.hidden = !cloudAvailable;
-  accountBtn.classList.toggle("on", !!cloud);
-  accountBtn.setAttribute("aria-label", cloud ? "Mis recuerdos están en la nube" : "Guardar mis recuerdos en la nube");
-}
-function fillAccountDlg() {
-  accountMsg.textContent = "";
-  const t = (id, txt) => { document.getElementById(id).textContent = txt; };
-  if (cloud) {
-    t("accountTitle", "Tus recuerdos están a salvo");
-    t("accountText", "Se guardan en la nube y los verás en cualquier teléfono o computadora donde entres con esta cuenta.");
-    t("accountNote", "Conectado como " + (cloud.user.email || cloud.user.displayName || "tu cuenta de Google"));
-    accountSecondary.textContent = "Cerrar sesión";
-    accountPrimary.textContent = "Listo";
-  } else {
-    t("accountTitle", "Guarda tus recuerdos para siempre");
-    t("accountText", "Entra con tu cuenta de Google y tus recuerdos quedarán guardados en la nube: no se pierden si cambias de teléfono o se borra el navegador.");
-    t("accountNote", "Solo tú puedes verlos. Los que ya guardaste aquí se suben solos.");
-    accountSecondary.textContent = "Ahora no";
-    accountPrimary.textContent = "Entrar con Google";
-  }
-}
-accountBtn.addEventListener("click", () => { fillAccountDlg(); accountDlg.showModal(); });
-accountDlg.addEventListener("click", e => { if (e.target === accountDlg) accountDlg.close(); });
-accountSecondary.addEventListener("click", async () => {
-  if (cloud && window.Cielo.signOut) {
-    try { await window.Cielo.signOut(); toast("Sesión cerrada"); }
-    catch (e) { accountMsg.textContent = "No se pudo cerrar la sesión."; return; }
-  }
-  accountDlg.close();
-});
-accountPrimary.addEventListener("click", async () => {
-  if (cloud) { accountDlg.close(); return; }
-  accountMsg.textContent = "";
-  accountPrimary.disabled = true;
-  try {
-    await window.Cielo.signIn();
-    accountDlg.close();
-  } catch (e) {
-    const code = (e && e.code) || "";
-    accountMsg.textContent =
-      code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request" ? "" :
-      code === "auth/popup-blocked" ? "El navegador bloqueó la ventana de Google. Permite las ventanas emergentes e inténtalo otra vez." :
-      code === "auth/unauthorized-domain" ? "Este sitio aún no está autorizado en Firebase (Authentication → Dominios autorizados)." :
-      code === "auth/network-request-failed" ? "Sin conexión a internet. Inténtalo cuando vuelvas a tener señal." :
-      "No se pudo entrar con Google. Inténtalo de nuevo.";
-  } finally {
-    accountPrimary.disabled = false;
-  }
-});
-
+/* ---------- Nube (el módulo de Firebase, al final, llama a window.Cielo) ---------- */
+let cloud = null;                  // { add(m), remove(id) } cuando Firebase está conectado
 window.Cielo = {
-  available() { cloudAvailable = true; updateAccountUI(); },
   localMemories: () => loadUser(),
   clearLocal() { try { localStorage.removeItem(STORE_KEY); } catch (e) {} },
-  connect(api) { cloud = api; updateAccountUI(); },
-  disconnect() {
-    cloud = null;
-    userMemories = loadUser();
-    render();
-    updateAccountUI();
-  },
+  connect(api) { cloud = api; },
   setMemories(list) {
     const same = list.length === userMemories.length && list.every((m, i) => m.id === userMemories[i].id);
     userMemories = list;
@@ -1461,11 +1351,11 @@ if (G && !REDUCE) {
 }
 </script>
 
-<!-- ===== Nube: Firebase (Google + Firestore) =====
+<!-- ===== Nube: Firebase (Firestore, sin inicio de sesión) =====
      Pega aquí la configuración de tu app web de Firebase (Configuración del
      proyecto → Tus apps). Mientras sea null, los recuerdos se guardan solo en
-     este navegador, como antes. Estos datos son públicos por diseño: lo que
-     protege los recuerdos son las reglas de firestore.rules. -->
+     este navegador, como antes. Estos datos son públicos por diseño; las
+     reglas de firestore.rules impiden eliminar o reescribir recuerdos. -->
 <script type="module">
 const FIREBASE_CONFIG = null;
 
@@ -1473,47 +1363,40 @@ const V = "10.14.1";
 if (FIREBASE_CONFIG && window.Cielo) {
   try {
     const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
-    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } =
-      await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
     const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-            collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } =
+            collection, doc, setDoc, updateDoc, onSnapshot, query, orderBy } =
       await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
 
     const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-    auth.languageCode = "es";
     // caché local: los recuerdos se ven al instante y se guardan aunque no haya señal
     const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+    const col = collection(db, "memories");
     const Cielo = window.Cielo;
-    const clean = m => ({ text: m.text || "", photo: m.photo || null, date: m.date || new Date().toISOString() });
+    const clean = m => ({ text: m.text || "", photo: m.photo || null, date: m.date || new Date().toISOString(), deleted: false });
 
-    Cielo.signIn = () => signInWithPopup(auth, new GoogleAuthProvider());
-    Cielo.signOut = () => signOut(auth);
-    Cielo.available();
+    // Subir los recuerdos que estaban solo en este navegador
+    const local = Cielo.localMemories();
+    if (local.length) {
+      Promise.all(local.map(m => setDoc(doc(col, m.id), clean(m))))
+        .then(() => { Cielo.clearLocal(); Cielo.toast("Tus recuerdos ya están guardados en la nube", 3600); })
+        .catch(() => Cielo.toast("Algunos recuerdos no se pudieron subir; siguen guardados en este navegador.", 5000));
+    }
 
-    let unsub = null;
-    onAuthStateChanged(auth, user => {
-      if (unsub) { unsub(); unsub = null; }
-      if (!user) { Cielo.disconnect(); return; }
-      const col = collection(db, "users", user.uid, "memories");
-
-      // Subir los recuerdos que estaban solo en este navegador
-      const local = Cielo.localMemories();
-      if (local.length) {
-        Promise.all(local.map(m => setDoc(doc(col, m.id), clean(m))))
-          .then(() => { Cielo.clearLocal(); Cielo.toast("Tus recuerdos ya están guardados en la nube", 3600); })
-          .catch(() => Cielo.toast("Algunos recuerdos no se pudieron subir; siguen guardados en este navegador.", 5000));
-      }
-
-      Cielo.connect({
-        user,
-        add: m => setDoc(doc(col, m.id), clean(m)),
-        remove: id => deleteDoc(doc(col, id))
-      });
-      unsub = onSnapshot(query(col, orderBy("date")),
-        snap => Cielo.setMemories(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-        () => Cielo.toast("No se pudieron leer tus recuerdos de la nube.", 4000));
+    Cielo.connect({
+      add: m => setDoc(doc(col, m.id), clean(m)),
+      // borrar = ocultar: el recuerdo sigue en Firebase y se puede recuperar
+      remove: id => updateDoc(doc(col, id), { deleted: true })
     });
+    onSnapshot(query(col, orderBy("date")),
+      snap => {
+        // la caché aún vacía no debe "borrar" lo que ya se ve mientras llega la nube
+        if (snap.empty && snap.metadata.fromCache) return;
+        Cielo.setMemories(snap.docs.filter(d => !d.data().deleted).map(d => {
+        const { text, photo, date } = d.data();
+        return { id: d.id, text, photo, date };
+      }));
+      },
+      () => Cielo.toast("No se pudieron leer los recuerdos de la nube.", 4000));
   } catch (e) {
     console.warn("Firebase no disponible; los recuerdos se guardan en este navegador.", e);
   }
