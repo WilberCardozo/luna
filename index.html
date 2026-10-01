@@ -22,6 +22,7 @@
   --ground-rim: rgba(255, 214, 170, .28);
   --grass: #5a7184;
   --mw-opacity: .5;
+  --aurora-opacity: .4;
   --ink: #f6f2fc;
   --ink-soft: rgba(246, 242, 252, 0.78);
   --panel: #fbf7fd;
@@ -50,6 +51,7 @@
     --ground-rim: rgba(190, 205, 255, .2);
     --grass: #2f5450;
     --mw-opacity: 1;
+    --aurora-opacity: 1;
     --panel: #1e2044;
     --panel-ink: #eeeaf8;
     --panel-soft: #aba5c7;
@@ -59,6 +61,7 @@
 }
 :root[data-theme="dark"] {
   --mw-opacity: 1;
+  --aurora-opacity: 1;
   --sky-top: #0b1030;
   --sky-mid: #1b1a45;
   --sky-bottom: #352857;
@@ -113,6 +116,28 @@ body {
 }
 @keyframes twinkle { from { opacity: .2; } to { opacity: .9; } }
 .milkyway { position: absolute; inset: 0; width: 100%; height: 100%; opacity: var(--mw-opacity); }
+/* Auroras: cortinas de rayos difuminados que se mecen (solo transform y opacity) */
+.aurora { position: absolute; left: 0; right: 0; top: 24%; height: 30%; opacity: var(--aurora-opacity); }
+.ribbon { position: absolute; left: -12%; width: 124%; height: 100%; transform-origin: 50% 100%; will-change: transform, opacity; }
+.ribbon svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.ribbon.a1 { top: 4%; animation: aurora1 15s ease-in-out infinite alternate; }
+.ribbon.a2 { top: 16%; animation: aurora2 19s ease-in-out infinite alternate; }
+.ribbon.a3 { top: -8%; animation: aurora3 24s ease-in-out infinite alternate; }
+@keyframes aurora1 {
+  0%   { transform: translateX(-4%) skewX(-7deg) scaleY(.9); opacity: .7; }
+  50%  { opacity: 1; }
+  100% { transform: translateX(4%) skewX(6deg) scaleY(1.1); opacity: .8; }
+}
+@keyframes aurora2 {
+  0%   { transform: translateX(5%) skewX(8deg) scaleY(1.05); opacity: .55; }
+  45%  { opacity: .9; }
+  100% { transform: translateX(-3%) skewX(-5deg) scaleY(.88); opacity: .6; }
+}
+@keyframes aurora3 {
+  0%   { transform: translateX(-2%) skewX(4deg) scaleY(1); opacity: .4; }
+  60%  { opacity: .75; }
+  100% { transform: translateX(3%) skewX(-6deg) scaleY(1.12); opacity: .5; }
+}
 .shooting {
   position: absolute;
   width: 150px; height: 1.6px;
@@ -381,7 +406,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bgstar, .star .glow, .z, dialog[open], .sway { animation: none !important; }
+  .bgstar, .star .glow, .z, dialog[open], .sway, .ribbon { animation: none !important; }
   .z { opacity: .8; }
 }
 </style>
@@ -390,7 +415,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 <main class="scene" id="scene">
   <div class="world" id="world">
     <div class="layer far" id="far" aria-hidden="true"><canvas class="milkyway" id="milkyway"></canvas><span class="moon"></span></div>
-    <div class="layer mid" id="mid" aria-hidden="true"></div>
+    <div class="layer mid" id="mid" aria-hidden="true"><div class="aurora" id="aurora"></div></div>
 
     <div class="layer sky-layer" id="skyLayer">
       <div class="sky-frame" id="skyFrame"></div>
@@ -986,6 +1011,46 @@ function drawMilkyWay() {
     ctx.stroke();
   }
   ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- Auroras boreales ---------- */
+// Cada cortina: rayos verticales que siguen una onda; el degradado de cada rayo
+// va de verde (abajo) a turquesa y violeta (arriba). Se difuminan con un filtro.
+const AURORA_COLORS = [
+  [["#c58cff", 0], ["#a77bff", .3], ["#3fe3c9", .7], ["#71ffad", .95], ["#71ffad", 0]],
+  [["#8f9bff", 0], ["#7f8cff", .25], ["#38d6e0", .65], ["#5cf2b8", .9], ["#5cf2b8", 0]],
+  [["#ff8fd0", 0], ["#d68cff", .35], ["#7f9dff", .55], ["#5fe8c0", .75], ["#5fe8c0", 0]]
+];
+function buildAurora() {
+  const box = document.getElementById("aurora");
+  box.textContent = "";
+  const r = rng(41), VW = 1000, VH = 400;
+  [["a1", 0, 1], ["a2", 2.1, .8], ["a3", 4.3, .7]].forEach(([cls, ph, k], idx) => {
+    const ribbon = document.createElement("div");
+    ribbon.className = "ribbon " + cls;
+    const svg = el("svg", { viewBox: `0 0 ${VW} ${VH}`, preserveAspectRatio: "none" });
+    const defs = el("defs", {});
+    const grad = el("linearGradient", { id: "aurG" + idx, x1: 0, y1: 0, x2: 0, y2: 1 });
+    AURORA_COLORS[idx].forEach(([c, o], i, arr) => {
+      grad.appendChild(el("stop", { offset: [0, .3, .62, .9, 1][i], "stop-color": c, "stop-opacity": o }));
+    });
+    const blur = el("filter", { id: "aurB" + idx, x: "-10%", y: "-20%", width: "120%", height: "140%" });
+    blur.appendChild(el("feGaussianBlur", { stdDeviation: "3 1.4" }));
+    defs.append(grad, blur);
+    const g = el("g", { filter: `url(#aurB${idx})` });
+    for (let x = 0; x < VW; x += 5 + r() * 6) {
+      const base = 300 + Math.sin(x / 150 + ph) * 48 + Math.sin(x / 57 + ph * 2) * 14;
+      const h = (150 + r() * 130) * k * (.8 + .2 * Math.sin(x / 70 + ph));
+      const edge = Math.pow(Math.sin(Math.PI * x / VW), .8);          // se desvanece en los extremos
+      const op = Math.min(1, (.35 + r() * .8) * (.6 + .45 * Math.sin(x / 95 + ph * 1.7)) * edge);
+      if (op < .04) continue;
+      g.appendChild(el("rect", { x: x.toFixed(1), y: (base - h).toFixed(1), width: (4 + r() * 7).toFixed(1),
+        height: h.toFixed(1), fill: `url(#aurG${idx})`, opacity: op.toFixed(2) }));
+    }
+    svg.append(defs, g);
+    ribbon.appendChild(svg);
+    box.appendChild(ribbon);
+  });
 }
 
 /* ---------- Estrellas fugaces ---------- */
@@ -1663,6 +1728,7 @@ setInterval(() => {
 render();
 buildField();
 drawMilkyWay();
+buildAurora();
 
 if (G && !REDUCE) {
   G.timeline({ delay: .1 })
