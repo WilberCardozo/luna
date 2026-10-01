@@ -17,8 +17,10 @@
   --slot: rgba(232, 236, 255, 0.45);
   --guide: rgba(232, 236, 255, 0.28);
   --line: rgba(255, 240, 200, 0.75);
-  --roof: #24234b;
-  --roof-line: #302e5e;
+  --ground-top: #343f66;
+  --ground-bottom: #1f2443;
+  --ground-rim: rgba(255, 214, 170, .28);
+  --grass: #5a7184;
   --ink: #f6f2fc;
   --ink-soft: rgba(246, 242, 252, 0.78);
   --panel: #fbf7fd;
@@ -42,8 +44,10 @@
     --sky-top: #0b1030;
     --sky-mid: #1b1a45;
     --sky-bottom: #352857;
-    --roof: #0d0d24;
-    --roof-line: #18183d;
+    --ground-top: #15283b;
+    --ground-bottom: #08111e;
+    --ground-rim: rgba(190, 205, 255, .2);
+    --grass: #2f5450;
     --panel: #1e2044;
     --panel-ink: #eeeaf8;
     --panel-soft: #aba5c7;
@@ -55,8 +59,10 @@
   --sky-top: #0b1030;
   --sky-mid: #1b1a45;
   --sky-bottom: #352857;
-  --roof: #0d0d24;
-  --roof-line: #18183d;
+  --ground-top: #15283b;
+  --ground-bottom: #08111e;
+  --ground-rim: rgba(190, 205, 255, .2);
+  --grass: #2f5450;
   --panel: #1e2044;
   --panel-ink: #eeeaf8;
   --panel-soft: #aba5c7;
@@ -179,16 +185,22 @@ h1 {
 .star:hover .ring, .star:focus-visible .ring { opacity: .9; }
 @keyframes starpulse { from { opacity: .55; transform: scale(.9); } to { opacity: 1; transform: scale(1.1); } }
 
-/* Tejado y gata */
-.roof {
+/* Campo de flores y gata (--roof-h = altura del campo bajo la gata) */
+.field {
   position: absolute;
   left: -14%; right: -14%;
   bottom: calc(-1 * env(safe-area-inset-bottom, 0px) - 40px);
-  height: calc(var(--roof-h) + env(safe-area-inset-bottom, 0px) + 40px);
-  background: repeating-linear-gradient(0deg, var(--roof) 0 15px, var(--roof-line) 15px 16px);
-  clip-path: polygon(0 52%, 50% 0, 100% 48%, 100% 100%, 0 100%);
-  z-index: 2;
+  height: calc(var(--roof-h) + var(--cat-w) * 1.15 + env(safe-area-inset-bottom, 0px) + 40px);
+  pointer-events: none;
 }
+.field svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.field.back { z-index: 0; }
+.field.front { z-index: 2; }
+.ground { fill: url(#groundGrad); }
+.ground-rim { fill: none; stroke: var(--ground-rim); stroke-width: 1.5; }
+.grass { fill: none; stroke: var(--grass); stroke-width: 1.2; stroke-linecap: round; }
+.sway { transform-box: view-box; animation: sway 5s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotate(-1.8deg); } to { transform: rotate(2deg); } }
 .cat-wrap {
   position: absolute;
   left: calc(50% - var(--cat-w) / 2);
@@ -346,7 +358,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bgstar, .star .glow, .z, dialog[open] { animation: none !important; }
+  .bgstar, .star .glow, .z, dialog[open], .sway { animation: none !important; }
   .z { opacity: .8; }
 }
 </style>
@@ -372,6 +384,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
     </div>
 
     <div class="layer front" id="front">
+      <div class="field back" id="fieldBack" aria-hidden="true"><svg><g id="fieldBackG"></g></svg></div>
       <div class="cat-wrap" id="catWrap">
         <button class="cat" id="cat" type="button" aria-label="Acariciar a Chepa">
           <svg viewBox="0 0 200 225" aria-hidden="true">
@@ -522,7 +535,25 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
           </svg>
         </button>
       </div>
-      <div class="roof" aria-hidden="true"></div>
+      <div class="field front" id="fieldFront" aria-hidden="true"><svg>
+        <defs>
+          <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" style="stop-color: var(--ground-top)"/>
+            <stop offset="1" style="stop-color: var(--ground-bottom)"/>
+          </linearGradient>
+          <radialGradient id="sunGlow">
+            <stop offset="0" stop-color="#ffd77a" stop-opacity=".45"/>
+            <stop offset=".5" stop-color="#ffc94d" stop-opacity=".14"/>
+            <stop offset="1" stop-color="#ffc94d" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="seeds" cx="45%" cy="40%">
+            <stop offset="0" stop-color="#6b4422"/>
+            <stop offset=".7" stop-color="#432812"/>
+            <stop offset="1" stop-color="#2c190a"/>
+          </radialGradient>
+        </defs>
+        <g id="fieldFrontG"></g>
+      </svg></div>
     </div>
   </div>
 
@@ -676,6 +707,119 @@ for (const id in DEPTHS) {
   if (G) G.set(node, { z, scale: s, force3D: true });
   else node.style.transform = `translateZ(${z}px) scale(${s})`;
 }
+
+/* ---------- Campo de flores y girasoles ---------- */
+const fieldBack = document.getElementById("fieldBack");
+const fieldFront = document.getElementById("fieldFront");
+function rng(seed) {                       // aleatorio con semilla: el campo no cambia al redimensionar
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const FLOWER_COLORS = ["#c9b6ff", "#f3a6c8", "#f4efe6", "#9fc6ff", "#ffd98a", "#e6a6ff"];
+
+function sunflower(x, base, h, R, lean, delay) {
+  const hx = x + lean, hy = base - h;
+  const outer = el("g", { class: "sunflower" });
+  const sway = el("g", { class: "sway" });
+  sway.style.transformOrigin = `${x}px ${base}px`;
+  sway.style.animationDelay = (-delay) + "s";
+  sway.style.animationDuration = (4.2 + delay % 2.4) + "s";
+  // tallo y hojas
+  sway.appendChild(el("path", { d: `M${x} ${base} Q ${x + lean * .15} ${base - h * .55} ${hx} ${hy + R * .3}`,
+    fill: "none", stroke: "#2f5a35", "stroke-width": Math.max(2, R * .16), "stroke-linecap": "round" }));
+  [[.42, -1], [.62, 1]].forEach(([t, dir]) => {
+    const lx = x + lean * t * .5, ly = base - h * t;
+    sway.appendChild(el("path", {
+      d: `M${lx} ${ly} q ${dir * R * .7} ${-R * .55} ${dir * R * 1.45} ${-R * .05} q ${-dir * R * .7} ${R * .45} ${-dir * R * 1.45} ${R * .05} z`,
+      fill: "#3d7040" }));
+  });
+  // brillo cálido para que destaquen en la noche
+  sway.appendChild(el("circle", { cx: hx, cy: hy, r: R * 2.3, fill: "url(#sunGlow)" }));
+  // pétalos (dos coronas) y centro de semillas
+  [[16, "#e3a020", 1, 0], [16, "#f8cd4f", .86, 360 / 32]].forEach(([n, color, k, off]) => {
+    for (let i = 0; i < n; i++) {
+      const len = R * .95 * k;
+      sway.appendChild(el("ellipse", { cx: hx, cy: hy - (R * .42 + len * .5), rx: R * .2, ry: len * .5, fill: color,
+        transform: `rotate(${off + i * 360 / n} ${hx} ${hy})` }));
+    }
+  });
+  sway.appendChild(el("circle", { cx: hx, cy: hy, r: R * .5, fill: "url(#seeds)" }));
+  for (let i = 0; i < 14; i++) {             // semillas en espiral
+    const a = i * 2.4, r = R * .07 + Math.sqrt(i / 14) * R * .38;
+    sway.appendChild(el("circle", { cx: hx + Math.cos(a) * r, cy: hy + Math.sin(a) * r, r: R * .035, fill: "#8a5a2b", opacity: .8 }));
+  }
+  outer.appendChild(sway);
+  return outer;
+}
+
+function buildField() {
+  const front = document.getElementById("fieldFrontG"), back = document.getElementById("fieldBackG");
+  const W = fieldFront.clientWidth, H = fieldFront.clientHeight;
+  const cat = document.getElementById("catWrap");
+  if (!W || !H || !cat.offsetWidth) return;
+  front.textContent = ""; back.textContent = "";
+  const cw = cat.offsetWidth, ch = cat.offsetHeight;
+  const cx = cat.offsetLeft + cw / 2 - fieldFront.offsetLeft;
+  const feet = cat.offsetTop + ch * 211 / 225 - fieldFront.offsetTop;   // patas de la gata
+  const depth = H - feet;
+  const surf = x => feet + 3 + Math.pow((x - cx) / (W / 2), 2) * depth * .55;
+  const r = rng(7);
+
+  // colina
+  let d = `M0 ${H} L0 ${surf(0)}`, rim = `M0 ${surf(0)}`;
+  for (let x = 0; x <= W; x += 16) { d += ` L${x} ${surf(x)}`; rim += ` L${x} ${surf(x)}`; }
+  d += ` L${W} ${surf(W)} L${W} ${H} Z`;
+  front.append(el("path", { class: "ground", d }), el("path", { class: "ground-rim", d: rim }));
+
+  // pasto
+  let g = "";
+  for (let x = 0; x < W; x += 5 + r() * 5) {
+    const y = surf(x) + 2 + r() * 4, hh = 5 + r() * 9, bend = (r() - .5) * 6;
+    g += `M${x.toFixed(1)} ${y.toFixed(1)} q ${bend.toFixed(1)} ${(-hh * .6).toFixed(1)} ${(bend * 1.6).toFixed(1)} ${(-hh).toFixed(1)} `;
+  }
+  for (let i = 0; i < W / 6; i++) {
+    const x = r() * W, y0 = surf(x), y = y0 + 10 + r() * (H - 40 - y0), hh = 4 + r() * 8;
+    g += `M${x.toFixed(1)} ${y.toFixed(1)} q 1.5 ${(-hh * .6).toFixed(1)} ${((r() - .5) * 6).toFixed(1)} ${(-hh).toFixed(1)} `;
+  }
+  front.appendChild(el("path", { class: "grass", d: g }));
+
+  // flores pequeñas: más chicas y tenues hacia atrás
+  const flowers = [];
+  const n = Math.round(Math.min(320, Math.max(70, W * (H - feet) / 700)));
+  for (let i = 0; i < n; i++) {
+    const x = r() * W, t = r(), y0 = surf(x);
+    const y = y0 + 5 + t * Math.max(0, H - 44 - y0);
+    if (Math.abs(x - cx) < cw * .3 && y < feet + 16) continue;        // no tapar las patitas
+    flowers.push({ x, y, t, c: FLOWER_COLORS[Math.floor(r() * FLOWER_COLORS.length)], rot: r() * 72 });
+  }
+  flowers.sort((a, b) => a.y - b.y).forEach(f => {
+    const s = 1.6 + f.t * 3.6, fg = el("g", { opacity: (.5 + f.t * .45).toFixed(2) });
+    fg.appendChild(el("line", { x1: f.x, y1: f.y, x2: f.x, y2: f.y + s * 2.4, stroke: "#2f5a35", "stroke-width": .9 }));
+    for (let k = 0; k < 5; k++) {
+      const a = (f.rot + k * 72) * Math.PI / 180;
+      fg.appendChild(el("circle", { cx: f.x + Math.cos(a) * s * .62, cy: f.y + Math.sin(a) * s * .62, r: s * .52, fill: f.c }));
+    }
+    fg.appendChild(el("circle", { cx: f.x, cy: f.y, r: s * .38, fill: "#ffe6a3" }));
+    front.appendChild(fg);
+  });
+
+  // girasoles: [lado * ancho de la gata, alto, tamaño, inclinación]
+  const SUN_BACK = [[-.4, .98, .15, -6], [.44, .9, .14, 7]];
+  const SUN_FRONT = [[-1.5, .46, .12, -4], [-1.16, .6, .14, -8], [-.66, .64, .165, -10], [-.88, .84, .18, 6],
+                     [.68, .72, .17, 10], [.95, .54, .145, -5], [1.2, .8, .165, 6], [1.55, .44, .12, 4]];
+  const plant = (list, into, k) => list.forEach(([dx, hh, sz, lean], i) => {
+    const x = cx + dx * cw, base = surf(x) + 10 + (i % 3) * 6;
+    into.appendChild(sunflower(x, base, hh * cw, sz * cw * .55, lean * cw / 200, (i + k) * 1.3));
+  });
+  plant(SUN_BACK, back, 0);
+  plant(SUN_FRONT.sort((a, b) => Math.abs(b[0]) - Math.abs(a[0])), front, 3);
+}
+let fieldTimer;
+addEventListener("resize", () => { clearTimeout(fieldTimer); fieldTimer = setTimeout(buildField, 150); });
 
 /* ---------- Constelación ---------- */
 function hash(str) {
@@ -1327,6 +1471,7 @@ setInterval(() => {
 
 /* ---------- Inicio ---------- */
 render();
+buildField();
 
 if (G && !REDUCE) {
   G.timeline({ delay: .1 })
@@ -1337,6 +1482,7 @@ if (G && !REDUCE) {
     .from("#layer .edge, #layer .slot, #layer .clabel", { opacity: 0, duration: .8, stagger: { amount: 1 } }, 1)
     .from("#layer .star", { opacity: 0, scale: 0, transformOrigin: "50% 50%", duration: .6, stagger: Math.min(.18, 1.6 / Math.max(1, allMemories().length)), ease: "back.out(2.5)" }, 1.5)
     .from("#catWrap", { yPercent: 70, duration: 1.4, ease: "power2.out" }, 1.1)
+    .from(".sunflower", { scale: 0, transformOrigin: "50% 100%", duration: 1, stagger: .09, ease: "back.out(1.4)" }, 1.4)
     .add(earTwitch, 2.6)
     .from([".count", ".add"], { opacity: 0, y: 10, duration: .8 }, 2.4)
     .add(() => {
