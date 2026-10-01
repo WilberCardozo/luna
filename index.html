@@ -256,6 +256,10 @@ dialog {
   overflow: auto;
 }
 dialog::backdrop { background: rgba(8, 9, 30, .62); }
+/* Entrada con CSS: si GSAP anima la posición del diálogo, al medirlo la
+   primera vez lo saca del documento y el diálogo pierde su centrado. */
+dialog[open] { animation: popin .45s cubic-bezier(.22, .8, .3, 1); }
+@keyframes popin { from { opacity: 0; transform: translateY(14px) scale(.96); } }
 .memory-photo { display: block; width: 100%; max-height: 52vh; object-fit: cover; }
 .dlg-body { padding: 22px 24px 20px; }
 .memory-text {
@@ -342,7 +346,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bgstar, .star .glow, .z { animation: none !important; }
+  .bgstar, .star .glow, .z, dialog[open] { animation: none !important; }
   .z { opacity: .8; }
 }
 </style>
@@ -775,9 +779,6 @@ const memoryDlg = document.getElementById("memoryDlg");
 const deleteBtn = document.getElementById("deleteBtn");
 let openId = null, confirmDelete = false;
 
-function popIn(dlg) {
-  if (G && !REDUCE) G.fromTo(dlg, { opacity: 0, y: 14, scale: .96 }, { opacity: 1, y: 0, scale: 1, duration: .45, ease: "power3.out" });
-}
 function openMemory(id) {
   if (dragMoved) return;
   const m = allMemories().find(x => x.id === id);
@@ -793,7 +794,6 @@ function openMemory(id) {
   deleteBtn.hidden = !!m.seed;
   deleteBtn.textContent = "Borrar este recuerdo";
   memoryDlg.showModal();
-  popIn(memoryDlg);
 }
 document.getElementById("closeMemory").addEventListener("click", () => memoryDlg.close());
 memoryDlg.addEventListener("click", e => { if (e.target === memoryDlg) memoryDlg.close(); });
@@ -819,7 +819,6 @@ let pendingPhoto = null;
 document.getElementById("addBtn").addEventListener("click", () => {
   form.reset(); pendingPhoto = null; preview.hidden = true; formMsg.textContent = "";
   addDlg.showModal();
-  popIn(addDlg);
   memInput.focus();
 });
 document.getElementById("cancelAdd").addEventListener("click", () => addDlg.close());
