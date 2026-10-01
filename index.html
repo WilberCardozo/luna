@@ -14,13 +14,14 @@
   --sky-mid: #574d8c;
   --sky-bottom: #b07f9c;
   --star: #fff3cf;
-  --slot: rgba(232, 236, 255, 0.45);
-  --guide: rgba(232, 236, 255, 0.28);
+  --slot: rgba(232, 236, 255, 0.6);
+  --guide: rgba(232, 236, 255, 0.4);
   --line: rgba(255, 240, 200, 0.75);
   --ground-top: #343f66;
   --ground-bottom: #1f2443;
   --ground-rim: rgba(255, 214, 170, .28);
   --grass: #5a7184;
+  --mw-opacity: .5;
   --ink: #f6f2fc;
   --ink-soft: rgba(246, 242, 252, 0.78);
   --panel: #fbf7fd;
@@ -48,6 +49,7 @@
     --ground-bottom: #08111e;
     --ground-rim: rgba(190, 205, 255, .2);
     --grass: #2f5450;
+    --mw-opacity: 1;
     --panel: #1e2044;
     --panel-ink: #eeeaf8;
     --panel-soft: #aba5c7;
@@ -56,6 +58,7 @@
   }
 }
 :root[data-theme="dark"] {
+  --mw-opacity: 1;
   --sky-top: #0b1030;
   --sky-mid: #1b1a45;
   --sky-bottom: #352857;
@@ -109,6 +112,26 @@ body {
   animation: twinkle 4s ease-in-out infinite alternate;
 }
 @keyframes twinkle { from { opacity: .2; } to { opacity: .9; } }
+.milkyway { position: absolute; inset: 0; width: 100%; height: 100%; opacity: var(--mw-opacity); }
+.shooting {
+  position: absolute;
+  width: 150px; height: 1.6px;
+  margin-left: -150px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 243, 207, 0), rgba(255, 243, 207, .9));
+  transform-origin: 100% 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+.shooting::after {
+  content: "";
+  position: absolute;
+  right: -2px; top: -1.4px;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: #fff8e0;
+  box-shadow: 0 0 8px 2px rgba(255, 240, 200, .7);
+}
 .moon {
   position: absolute;
   top: 22%; right: 22%;
@@ -366,7 +389,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 <body>
 <main class="scene" id="scene">
   <div class="world" id="world">
-    <div class="layer far" id="far" aria-hidden="true"><span class="moon"></span></div>
+    <div class="layer far" id="far" aria-hidden="true"><canvas class="milkyway" id="milkyway"></canvas><span class="moon"></span></div>
     <div class="layer mid" id="mid" aria-hidden="true"></div>
 
     <div class="layer sky-layer" id="skyLayer">
@@ -883,7 +906,110 @@ function buildField() {
   plant(SUN_FRONT, front, 2);
 }
 let fieldTimer;
-addEventListener("resize", () => { clearTimeout(fieldTimer); fieldTimer = setTimeout(buildField, 150); });
+addEventListener("resize", () => {
+  clearTimeout(fieldTimer);
+  fieldTimer = setTimeout(() => { buildField(); drawMilkyWay(); }, 150);
+});
+
+/* ---------- Vía Láctea (se dibuja una vez en la capa más lejana) ---------- */
+function gauss(r) {
+  let u = 0;
+  while (!u) u = r();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r());
+}
+function drawMilkyWay() {
+  const cv = document.getElementById("milkyway");
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H || !cv.getContext) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const r = rng(23);
+
+  // franja diagonal, de abajo a la izquierda hacia arriba a la derecha
+  const x0 = -.05 * W, y0 = .74 * H, x1 = 1.05 * W, y1 = .1 * H;
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+  const nx = -dy / len, ny = dx / len;
+  const bw = Math.min(W, H) * .17;
+  const at = (t, off) => [x0 + dx * t + nx * off, y0 + dy * t + ny * off];
+  const wob = t => Math.sin(t * 9) * bw * .18 + Math.sin(t * 23 + 1) * bw * .08;
+  const blob = (x, y, rad, rgb, a) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, `rgba(${rgb},${a})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+  };
+
+  // resplandor: lila y rosa, con un núcleo cálido
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 190; i++) {
+    const t = r(), [x, y] = at(t, wob(t) + gauss(r) * bw * .33);
+    const warm = Math.exp(-Math.pow((t - .4) / .12, 2));
+    const rgb = warm > .45 && r() < .8 ? "255,214,170" : r() < .28 ? "255,170,215" : "165,172,255";
+    blob(x, y, bw * (.3 + r() * .6), rgb, .026 + warm * .03);
+  }
+  // estrellas: muchísimas dentro de la franja y algunas por todo el cielo
+  const nBand = Math.round(W * H / 200), nAll = Math.round(W * H / 1500);
+  for (let i = 0; i < nBand + nAll; i++) {
+    let x, y;
+    if (i < nBand) { const t = r(); [x, y] = at(t, wob(t) + gauss(r) * bw * .42); }
+    else { x = r() * W; y = r() * H; }
+    const sz = .3 + Math.pow(r(), 3) * 1.1, c = r();
+    ctx.fillStyle = `rgba(${c < .08 ? "255,214,180" : c < .17 ? "190,210,255" : "255,255,255"},${(.2 + r() * .6).toFixed(2)})`;
+    ctx.fillRect(x, y, sz, sz);
+  }
+  // polvo oscuro que parte la franja: vetas alargadas en la dirección de la banda
+  ctx.globalCompositeOperation = "source-over";
+  const ang = Math.atan2(dy, dx);
+  for (let i = 0; i < 150; i++) {
+    const t = .04 + r() * .92;
+    const [x, y] = at(t, wob(t) + Math.sin(t * 14) * bw * .12 + gauss(r) * bw * .09);
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(ang + (r() - .5) * .5); ctx.scale(2.4 + r() * 1.6, 1);
+    blob(0, 0, bw * (.04 + r() * .1), "8,9,30", .16 + r() * .2);
+    ctx.restore();
+  }
+  // unas pocas estrellas brillantes con destellos
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 10; i++) {
+    const x = r() * W, y = r() * H * .8, sz = 1 + r() * 1.3;
+    blob(x, y, sz * 7, "255,244,215", .3);
+    ctx.fillStyle = "rgba(255,255,250,.95)";
+    ctx.beginPath(); ctx.arc(x, y, sz * .75, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,244,220,.35)"; ctx.lineWidth = .7;
+    ctx.beginPath();
+    ctx.moveTo(x - sz * 8, y); ctx.lineTo(x + sz * 8, y);
+    ctx.moveTo(x, y - sz * 8); ctx.lineTo(x, y + sz * 8);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- Estrellas fugaces ---------- */
+function shootingStar() {
+  if (!G || REDUCE || document.hidden) return;
+  const mid = document.getElementById("mid");
+  const W = mid.clientWidth, H = mid.clientHeight;
+  const s = document.createElement("span");
+  s.className = "shooting";
+  s.style.left = (W * (.25 + Math.random() * .5)) + "px";
+  s.style.top = (H * (.15 + Math.random() * .3)) + "px";
+  mid.appendChild(s);
+  const ang = 16 + Math.random() * 24, rot = Math.random() < .5 ? ang : 180 - ang;
+  const dist = 240 + Math.random() * 220, rad = rot * Math.PI / 180;
+  G.timeline({ onComplete: () => s.remove() })
+    .set(s, { rotation: rot, x: 0, y: 0 })
+    .to(s, { opacity: 1, duration: .15 })
+    .to(s, { x: Math.cos(rad) * dist, y: Math.sin(rad) * dist, duration: .95, ease: "power1.in" }, 0)
+    .to(s, { opacity: 0, duration: .35 }, .62);
+}
+function scheduleShooting() {
+  if (!G || REDUCE) return;
+  G.delayedCall(6 + Math.random() * 12, () => { shootingStar(); scheduleShooting(); });
+}
 
 /* ---------- Constelación ---------- */
 function hash(str) {
@@ -1536,6 +1662,7 @@ setInterval(() => {
 /* ---------- Inicio ---------- */
 render();
 buildField();
+drawMilkyWay();
 
 if (G && !REDUCE) {
   G.timeline({ delay: .1 })
@@ -1552,6 +1679,7 @@ if (G && !REDUCE) {
     .add(() => {
       toast("Desliza el dedo para recorrer el cielo", 3600);
       scheduleIdle();
+      scheduleShooting();
       G.delayedCall(6, groom);
     }, 3.2);
 }
