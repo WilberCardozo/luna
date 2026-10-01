@@ -546,11 +546,26 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
             <stop offset=".5" stop-color="#ffc94d" stop-opacity=".14"/>
             <stop offset="1" stop-color="#ffc94d" stop-opacity="0"/>
           </radialGradient>
-          <radialGradient id="seeds" cx="45%" cy="40%">
-            <stop offset="0" stop-color="#6b4422"/>
-            <stop offset=".7" stop-color="#432812"/>
-            <stop offset="1" stop-color="#2c190a"/>
+          <radialGradient id="disc" cx="45%" cy="42%">
+            <stop offset="0" stop-color="#7d7a30"/>
+            <stop offset=".55" stop-color="#5a5520"/>
+            <stop offset="1" stop-color="#3b2a0e"/>
           </radialGradient>
+          <linearGradient id="petalBack" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#b8670f"/><stop offset="1" stop-color="#e09a22"/>
+          </linearGradient>
+          <linearGradient id="petalMid" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#d98e17"/><stop offset=".6" stop-color="#f2bb2e"/><stop offset="1" stop-color="#f8cf4a"/>
+          </linearGradient>
+          <linearGradient id="petalFront" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0" stop-color="#e8a41f"/><stop offset=".55" stop-color="#fbd03f"/><stop offset="1" stop-color="#ffe27a"/>
+          </linearGradient>
+          <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#4f8a3e"/><stop offset="1" stop-color="#2c5528"/>
+          </linearGradient>
+          <linearGradient id="stemGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#2e5a2a"/><stop offset=".45" stop-color="#5a8f44"/><stop offset="1" stop-color="#2a4f26"/>
+          </linearGradient>
         </defs>
         <g id="fieldFrontG"></g>
       </svg></div>
@@ -721,37 +736,86 @@ function rng(seed) {                       // aleatorio con semilla: el campo no
 }
 const FLOWER_COLORS = ["#c9b6ff", "#f3a6c8", "#f4efe6", "#9fc6ff", "#ffd98a", "#e6a6ff"];
 
-function sunflower(x, base, h, R, lean, delay) {
+// Pétalo en punta, dibujado hacia arriba desde (0, 0) con largo L y medio ancho w
+const petalPath = (L, w) =>
+  `M0 0 C ${w * 1.15} ${-L * .22} ${w * .75} ${-L * .78} 0 ${-L} C ${-w * .75} ${-L * .78} ${-w * 1.15} ${-L * .22} 0 0 Z`;
+
+function leaf(g, x, y, len, angle, flip) {
+  const W = len * .42 * flip;
+  const lg = el("g", { transform: `translate(${x} ${y}) rotate(${angle})` });
+  lg.appendChild(el("path", { d: `M0 0 L${len * .14} 0`, stroke: "#2f5a2b", "stroke-width": len * .045, "stroke-linecap": "round" }));
+  lg.appendChild(el("path", { fill: "url(#leafGrad)",
+    d: `M${len * .12} 0 C ${len * .1} ${-W * .9} ${len * .55} ${-W * 1.1} ${len} 0 C ${len * .55} ${W * .95} ${len * .1} ${W * .9} ${len * .12} 0 Z` }));
+  let v = `M${len * .12} 0 L${len * .95} 0`;      // nervaduras
+  [.32, .52, .7].forEach(t => {
+    const vx = len * t;
+    v += ` M${vx} 0 q ${len * .1} ${-W * .25} ${len * .2} ${-W * .55} M${vx} 0 q ${len * .1} ${W * .25} ${len * .2} ${W * .55}`;
+  });
+  lg.appendChild(el("path", { d: v, fill: "none", stroke: "#7fb06a", "stroke-width": len * .012, opacity: .55 }));
+  g.appendChild(lg);
+}
+
+function sunflowerHead(g, hx, hy, R, tilt, squash, r) {
+  const head = el("g", { transform: `translate(${hx} ${hy}) rotate(${tilt}) scale(${squash} 1)` });
+  head.appendChild(el("circle", { r: R * 2.4, fill: "url(#sunGlow)" }));
+  const Rc = R * .46;
+  // brácteas verdes por detrás
+  for (let i = 0; i < 18; i++) {
+    head.appendChild(el("path", { d: petalPath(R * .62, R * .09), fill: "#4c7a2c",
+      transform: `rotate(${i * 20 + 10}) translate(0 ${-Rc * .7})` }));
+  }
+  // tres coronas de pétalos, con largo y ángulo algo irregulares
+  [["url(#petalBack)", 21, 1.05, .2, 0], ["url(#petalMid)", 21, .98, .19, 360 / 42], ["url(#petalFront)", 17, .8, .17, 360 / 34]]
+    .forEach(([fill, n, k, wk, off], layer) => {
+      for (let i = 0; i < n; i++) {
+        const L = R * k * (.88 + r() * .24), ang = off + i * 360 / n + (r() - .5) * 7;
+        const pg = el("g", { transform: `rotate(${ang.toFixed(1)}) translate(0 ${-Rc * .82})` });
+        pg.appendChild(el("path", { d: petalPath(L, R * wk * (.9 + r() * .2)), fill }));
+        if (layer) pg.appendChild(el("path", { d: `M0 ${-L * .08} L0 ${-L * .75}`, stroke: "#b06a10", "stroke-width": R * .012, opacity: .45 }));
+        head.appendChild(pg);
+      }
+    });
+  // centro: anillo oscuro, disco verdoso y flores diminutas en espiral
+  head.appendChild(el("circle", { r: Rc, fill: "#2c1806" }));
+  head.appendChild(el("circle", { r: Rc * .78, fill: "url(#disc)" }));
+  const N = 110;
+  for (let i = 1; i < N; i++) {
+    const t = i / N, rr = Rc * .95 * Math.sqrt(t), a = i * 2.39996;
+    const col = t < .3 ? "#8c8738" : t < .62 ? "#6a5a22" : t < .85 ? "#4a2c0f" : (r() < .35 ? "#d39a2a" : "#3a210a");
+    head.appendChild(el("circle", { cx: (Math.cos(a) * rr).toFixed(2), cy: (Math.sin(a) * rr).toFixed(2),
+      r: (Rc * (.045 + t * .035)).toFixed(2), fill: col, opacity: .9 }));
+  }
+  head.appendChild(el("ellipse", { cx: -Rc * .25, cy: -Rc * .3, rx: Rc * .35, ry: Rc * .22, fill: "#fff6d0", opacity: .08 }));
+  g.appendChild(head);
+}
+
+function sunflower(x, base, h, R, lean, delay, r, opts = {}) {
   const hx = x + lean, hy = base - h;
   const outer = el("g", { class: "sunflower" });
   const sway = el("g", { class: "sway" });
   sway.style.transformOrigin = `${x}px ${base}px`;
   sway.style.animationDelay = (-delay) + "s";
-  sway.style.animationDuration = (4.2 + delay % 2.4) + "s";
-  // tallo y hojas
-  sway.appendChild(el("path", { d: `M${x} ${base} Q ${x + lean * .15} ${base - h * .55} ${hx} ${hy + R * .3}`,
-    fill: "none", stroke: "#2f5a35", "stroke-width": Math.max(2, R * .16), "stroke-linecap": "round" }));
-  [[.42, -1], [.62, 1]].forEach(([t, dir]) => {
-    const lx = x + lean * t * .5, ly = base - h * t;
-    sway.appendChild(el("path", {
-      d: `M${lx} ${ly} q ${dir * R * .7} ${-R * .55} ${dir * R * 1.45} ${-R * .05} q ${-dir * R * .7} ${R * .45} ${-dir * R * 1.45} ${R * .05} z`,
-      fill: "#3d7040" }));
+  sway.style.animationDuration = (4.4 + delay % 2.2) + "s";
+  const sw = Math.max(2.4, R * .2);
+  const stem = `M${x} ${base} C ${x - lean * .2} ${base - h * .35} ${hx + lean * .1} ${base - h * .75} ${hx} ${hy + R * .3}`;
+  sway.appendChild(el("path", { d: stem, fill: "none", stroke: "url(#stemGrad)", "stroke-width": sw, "stroke-linecap": "round" }));
+  sway.appendChild(el("path", { d: stem, fill: "none", stroke: "#8cc06e", "stroke-width": sw * .18, opacity: .35, transform: `translate(${-sw * .2} 0)` }));
+  // hojas anchas que cuelgan del tallo
+  [[.3, 1, 18], [.5, -1, 200], [.68, 1, 4]].forEach(([t, side, ang]) => {
+    const lx = x + lean * t, ly = base - h * t;
+    leaf(sway, lx, ly, R * (1.35 - t * .5), ang + (r() - .5) * 14, side);
   });
-  // brillo cálido para que destaquen en la noche
-  sway.appendChild(el("circle", { cx: hx, cy: hy, r: R * 2.3, fill: "url(#sunGlow)" }));
-  // pétalos (dos coronas) y centro de semillas
-  [[16, "#e3a020", 1, 0], [16, "#f8cd4f", .86, 360 / 32]].forEach(([n, color, k, off]) => {
-    for (let i = 0; i < n; i++) {
-      const len = R * .95 * k;
-      sway.appendChild(el("ellipse", { cx: hx, cy: hy - (R * .42 + len * .5), rx: R * .2, ry: len * .5, fill: color,
-        transform: `rotate(${off + i * 360 / n} ${hx} ${hy})` }));
+  if (opts.bud) {                            // capullo en una rama lateral
+    const bx = x + lean * .55 + R * 1.1, by = base - h * .62;
+    sway.appendChild(el("path", { d: `M${x + lean * .5} ${base - h * .5} Q ${bx - R * .2} ${by + R * .2} ${bx} ${by}`,
+      fill: "none", stroke: "#3c6a33", "stroke-width": sw * .6, "stroke-linecap": "round" }));
+    for (let i = 0; i < 8; i++) {
+      sway.appendChild(el("path", { d: petalPath(R * .32, R * .08), fill: i % 2 ? "#f2c037" : "#4f7f2f",
+        transform: `translate(${bx} ${by}) rotate(${i * 45 - 20})` }));
     }
-  });
-  sway.appendChild(el("circle", { cx: hx, cy: hy, r: R * .5, fill: "url(#seeds)" }));
-  for (let i = 0; i < 14; i++) {             // semillas en espiral
-    const a = i * 2.4, r = R * .07 + Math.sqrt(i / 14) * R * .38;
-    sway.appendChild(el("circle", { cx: hx + Math.cos(a) * r, cy: hy + Math.sin(a) * r, r: R * .035, fill: "#8a5a2b", opacity: .8 }));
+    sway.appendChild(el("circle", { cx: bx, cy: by, r: R * .17, fill: "#3f6e2e" }));
   }
+  sunflowerHead(sway, hx, hy, R, opts.tilt || 0, opts.squash || 1, r);
   outer.appendChild(sway);
   return outer;
 }
@@ -807,16 +871,16 @@ function buildField() {
     front.appendChild(fg);
   });
 
-  // girasoles: [lado * ancho de la gata, alto, tamaño, inclinación]
-  const SUN_BACK = [[-.4, .98, .15, -6], [.44, .9, .14, 7]];
-  const SUN_FRONT = [[-1.5, .46, .12, -4], [-1.16, .6, .14, -8], [-.66, .64, .165, -10], [-.88, .84, .18, 6],
-                     [.68, .72, .17, 10], [.95, .54, .145, -5], [1.2, .8, .165, 6], [1.55, .44, .12, 4]];
-  const plant = (list, into, k) => list.forEach(([dx, hh, sz, lean], i) => {
-    const x = cx + dx * cw, base = surf(x) + 10 + (i % 3) * 6;
-    into.appendChild(sunflower(x, base, hh * cw, sz * cw * .55, lean * cw / 200, (i + k) * 1.3));
+  // girasoles: [lado * ancho de la gata, alto, tamaño, inclinación, giro de la cabeza, perspectiva, capullo]
+  const SUN_BACK = [[-.42, 1.0, .2, -8, -8, .9], [.47, .9, .19, 9, 10, .86]];
+  const SUN_FRONT = [[-1.0, .56, .2, 10, 6, .92], [-.72, .78, .25, -14, -6, .95, true], [.8, .66, .23, 12, 12, .88]];
+  const sr = rng(11);
+  const plant = (list, into, k) => list.forEach(([dx, hh, sz, lean, tilt, squash, bud], i) => {
+    const x = cx + dx * cw, base = surf(x) + 12 + (i % 2) * 8;
+    into.appendChild(sunflower(x, base, hh * cw, sz * cw * .55, lean * cw / 200, (i + k) * 1.3, sr, { tilt, squash, bud }));
   });
   plant(SUN_BACK, back, 0);
-  plant(SUN_FRONT.sort((a, b) => Math.abs(b[0]) - Math.abs(a[0])), front, 3);
+  plant(SUN_FRONT, front, 2);
 }
 let fieldTimer;
 addEventListener("resize", () => { clearTimeout(fieldTimer); fieldTimer = setTimeout(buildField, 150); });
