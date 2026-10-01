@@ -1357,9 +1357,16 @@ if (G && !REDUCE) {
      este navegador, como antes. Estos datos son públicos por diseño; las
      reglas de firestore.rules impiden eliminar o reescribir recuerdos. -->
 <script type="module">
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCEjbQ-1hqgyUmaHqbwhJ0qqzOzM33qPZE",
+  authDomain: "project-a7e02.firebaseapp.com",
+  projectId: "project-a7e02",
+  storageBucket: "project-a7e02.firebasestorage.app",
+  messagingSenderId: "656055578348",
+  appId: "1:656055578348:web:da37a60626d6ec6bf8bfc9"
+};
 
-const V = "10.14.1";
+const V = "12.19.0";
 if (FIREBASE_CONFIG && window.Cielo) {
   try {
     const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
