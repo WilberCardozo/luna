@@ -30,7 +30,7 @@
   --danger: #a3364a;
 
   --roof-h: clamp(96px, 16vh, 150px);
-  --cat-w: clamp(124px, 23vh, 200px);
+  --cat-w: clamp(150px, 28vh, 250px);
 
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -365,6 +365,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
             </defs>
 
             <ellipse cx="100" cy="118" rx="98" ry="104" fill="url(#halo)"/>
+            <ellipse cx="100" cy="211" rx="66" ry="7" fill="#08071a" opacity=".35"/>
 
             <g id="catWhole">
               <!-- cola -->
@@ -380,6 +381,14 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
                 <path d="M154 208 C 164 158, 148 124, 121 112 C 134 138, 137 172, 129 208 Z" fill="url(#blackFur)"/>
                 <path d="M46 208 C 34 150, 62 106, 100 106 C 138 106, 166 150, 154 208" fill="none" stroke="#6a6492" stroke-width="1.4" opacity=".6"/>
                 <path d="M91 128 q4 6 0 12 M109 128 q-4 6 0 12 M100 138 q3 5 0 10" fill="none" stroke="#d0c8c0" stroke-width="1.2" stroke-linecap="round"/>
+                <!-- mechón del pecho -->
+                <path d="M84 113 L88 127 L92 120 L96 133 L100 123 L104 133 L108 120 L112 127 L116 113 Z" fill="#f6f2ec"/>
+                <path d="M92 120 l1.5 5 M100 123 v6 M108 120 l-1.5 5" stroke="#d8d0c8" stroke-width=".9" stroke-linecap="round"/>
+                <!-- brillo del pelaje negro -->
+                <g stroke="#4a4560" stroke-width="1.1" stroke-linecap="round" fill="none" opacity=".8">
+                  <path d="M54 170 q3 -8 9 -12 M52 186 q3 -7 8 -10 M57 150 q4 -6 9 -9"/>
+                  <path d="M146 170 q-3 -8 -9 -12 M148 186 q-3 -7 -8 -10 M143 150 q-4 -6 -9 -9"/>
+                </g>
                 <g id="legs">
                   <g id="legL">
                     <rect x="78" y="154" width="20" height="50" rx="10" fill="url(#whiteFur)" stroke="#cfc7be" stroke-width="1"/>
@@ -411,7 +420,14 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
                   <path d="M137 56 L 135 29 L 118 46 Z" fill="#6f5866"/>
                   <path d="M134 50 l-6 -10 M130 52 l-6 -8" stroke="#c4bccb" stroke-width=".8" stroke-linecap="round"/>
                 </g>
+                <!-- mejillas con pelito -->
+                <path d="M60 78 L47 83 L57 87 L45 93 L58 94 L50 100 L64 98 Z" fill="#1f1c26" stroke="#6a6492" stroke-width="1.1" stroke-linejoin="round"/>
+                <path d="M140 78 L153 83 L143 87 L155 93 L142 94 L150 100 L136 98 Z" fill="#1f1c26" stroke="#6a6492" stroke-width="1.1" stroke-linejoin="round"/>
                 <ellipse cx="100" cy="74" rx="45" ry="37" fill="url(#blackFur)" stroke="#6a6492" stroke-width="1.3"/>
+                <!-- brillo de la frente -->
+                <g stroke="#4a4560" stroke-width="1" stroke-linecap="round" fill="none">
+                  <path d="M70 52 q7 -6 15 -5 M66 58 q5 -4 10 -4 M130 52 q-7 -6 -15 -5 M134 58 q-5 -4 -10 -4"/>
+                </g>
                 <!-- mancha blanca de la frente al hocico -->
                 <path d="M101 46 C 98 58, 94 66, 93 76 C 91 84, 80 88, 76 98 C 82 112, 118 112, 124 98 C 120 88, 109 84, 107 76 C 106 66, 103 58, 101 46 Z" fill="#f4f0ea"/>
                 <ellipse cx="100" cy="106" rx="15" ry="6" fill="#ece6df"/>
@@ -422,6 +438,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
                   <g id="pupilL">
                     <ellipse cx="80" cy="75" rx="2.5" ry="6.4" fill="#0d0b10"/>
                     <circle cx="82.6" cy="71.6" r="1.6" fill="#fff" opacity=".9"/>
+                    <circle cx="78" cy="78.6" r=".7" fill="#fff" opacity=".6"/>
                   </g>
                   <rect class="lid" x="66" y="63" width="28" height="24" fill="#1f1c26"/>
                 </g>
@@ -431,6 +448,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
                   <g id="pupilR">
                     <ellipse cx="120" cy="75" rx="2.5" ry="6.4" fill="#0d0b10"/>
                     <circle cx="122.6" cy="71.6" r="1.6" fill="#fff" opacity=".9"/>
+                    <circle cx="118" cy="78.6" r=".7" fill="#fff" opacity=".6"/>
                   </g>
                   <rect class="lid" x="106" y="63" width="28" height="24" fill="#1f1c26"/>
                 </g>
@@ -444,6 +462,8 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 
                 <!-- nariz, boca, bigotes -->
                 <path d="M95 89 Q100 86.5 105 89 Q102.5 93.5 100 94.5 Q97.5 93.5 95 89 Z" fill="#e9a3a8"/>
+                <ellipse cx="98.4" cy="89.2" rx="1.6" ry=".8" fill="#fff" opacity=".45"/>
+                <g fill="#b9adab"><circle cx="91" cy="95.5" r=".6"/><circle cx="89.5" cy="98.5" r=".6"/><circle cx="92" cy="100.5" r=".6"/><circle cx="109" cy="95.5" r=".6"/><circle cx="110.5" cy="98.5" r=".6"/><circle cx="108" cy="100.5" r=".6"/></g>
                 <path d="M100 94.5 v3 M93.5 98.5 Q96.8 101.5 100 97.5 Q103.2 101.5 106.5 98.5" fill="none" stroke="#9b8b8c" stroke-width="1.2" stroke-linecap="round"/>
                 <g stroke="#f7f4ef" stroke-width=".8" opacity=".85" stroke-linecap="round" fill="none">
                   <path d="M88 95 L 50 88 M88 98 L 48 98 M89 101 L 52 108 M112 95 L 150 88 M112 98 L 152 98 M111 101 L 148 108"/>
@@ -906,11 +926,14 @@ function resetPose() {
   if (!G) return;
   if (groomTl) { groomTl.kill(); groomTl = null; }
   if (happyTl) { happyTl.kill(); happyTl = null; }
-  G.killTweensOf(["#head", "#rpaw", "#legR", "#tongue", "#eyesClosed", "#eyesHappy", "#legs", "#catWhole", "#zzz", ".lid"]);
+  G.killTweensOf(["#head", "#rpaw", "#legR", "#tongue", "#eyesClosed", "#eyesHappy", "#legs", "#catWhole", "#zzz", ".lid", "#earL", "#earR"]);
   G.to("#rpaw", { opacity: 0, y: 40, duration: .2 });
-  G.set(["#tongue", "#eyesHappy"], { opacity: 0 });
+  G.set(["#tongue", "#eyesHappy", "#eyesClosed"], { opacity: 0 });
   G.to(["#legR", "#legs"], { opacity: 1, duration: .25 });
-  G.to("#head", { rotation: 0, svgOrigin: "100 112", duration: .3 });
+  G.to("#head", { rotation: 0, x: 0, y: 0, scaleY: 1, svgOrigin: "100 112", duration: .3 });
+  G.to("#earL", { rotation: 0, svgOrigin: "74 56", duration: .25 });
+  G.to("#earR", { rotation: 0, svgOrigin: "126 56", duration: .25 });
+  G.to("#catWhole", { rotation: 0, svgOrigin: "100 208", duration: .3 });
 }
 
 function toLoaf() {
@@ -975,11 +998,11 @@ window.addEventListener("pointermove", e => {
 });
 
 let actx = null;
-function purrSound() {
+function purrSound(dur = 1.7) {
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === "suspended") actx.resume();
-    const t = actx.currentTime, dur = 1.7;
+    const t = actx.currentTime;
     const buf = actx.createBuffer(1, Math.floor(actx.sampleRate * dur), actx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -1009,9 +1032,54 @@ function floatPurr() {
   if (G) G.fromTo(s, { opacity: 0, y: 0 }, { keyframes: [{ opacity: 1, y: -16, duration: .4 }, { opacity: 0, y: -52, duration: 1 }], onComplete: () => s.remove() });
   else setTimeout(() => s.remove(), 1400);
 }
-cat.addEventListener("click", () => {
+/* Zona acariciada, en coordenadas del dibujo (viewBox 200 x 225) */
+function petZone(e) {
+  if (!e.detail) return "head";            // teclado: caricia normal
+  const r = cat.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * 200;
+  const y = (e.clientY - r.top) / r.height * 225;
+  if (x < 76) return "left";
+  if (x > 124) return "right";
+  return y > 98 ? "neck" : "head";
+}
+const endPet = () => { state = "idle"; happyTl = null; };
+
+/* De lado: se recuesta contra la mano, baja esa oreja y se frota */
+function petSide(dir) {                    // -1 izquierda, 1 derecha
+  const ear = dir < 0 ? "#earL" : "#earR", earOrigin = dir < 0 ? "74 56" : "126 56";
+  happyTl = G.timeline({ onComplete: endPet })
+    .to(".lid", { scaleY: 1, duration: .12 })
+    .to("#eyesHappy", { opacity: 1, duration: .12 }, "<")
+    .to("#head", { rotation: dir * 14, x: dir * 4, svgOrigin: "100 112", duration: .45, ease: "sine.out" }, 0)
+    .to(ear, { rotation: dir * 24, svgOrigin: earOrigin, duration: .3, ease: "power2.out" }, 0)
+    .to("#catWhole", { rotation: dir * 3, svgOrigin: "100 208", duration: .5, ease: "sine.out" }, 0)
+    .to("#head", { rotation: dir * 7, duration: .32, yoyo: true, repeat: 3, ease: "sine.inOut" }, .5)
+    .to("#head", { rotation: 0, x: 0, duration: .55, ease: "sine.inOut" }, 1.9)
+    .to(ear, { rotation: 0, svgOrigin: earOrigin, duration: .35 }, 1.95)
+    .to("#catWhole", { rotation: 0, svgOrigin: "100 208", duration: .6, ease: "sine.inOut" }, 1.9)
+    .to("#eyesHappy", { opacity: 0, duration: .15 }, 2.1)
+    .to(".lid", { scaleY: 0, duration: .25 }, 2.15);
+}
+
+/* En el cuello: levanta la cabeza con los ojos cerrados */
+function petNeck() {
+  happyTl = G.timeline({ onComplete: endPet })
+    .to(".lid", { scaleY: 1, duration: .25 })
+    .to("#eyesClosed", { opacity: .95, duration: .25 }, "<")
+    .to("#head", { y: -8, scaleY: .94, rotation: 0, svgOrigin: "100 112", duration: .7, ease: "sine.out" }, 0)
+    .to("#earL", { rotation: -9, svgOrigin: "74 56", duration: .6 }, .1)
+    .to("#earR", { rotation: 9, svgOrigin: "126 56", duration: .6 }, .1)
+    .to("#head", { y: -10, rotation: 2, duration: .5, yoyo: true, repeat: 3, ease: "sine.inOut" }, .8)
+    .to("#head", { y: 0, scaleY: 1, rotation: 0, duration: .6, ease: "sine.inOut" }, 2.9)
+    .to(["#earL", "#earR"], { rotation: 0, duration: .5 }, 2.9)
+    .to("#eyesClosed", { opacity: 0, duration: .2 }, 3.2)
+    .to(".lid", { scaleY: 0, duration: .3 }, 3.25);
+}
+
+cat.addEventListener("click", e => {
   lastTap = Date.now();
-  purrSound();
+  const zone = petZone(e);
+  purrSound(zone === "neck" ? 3 : 1.7);
   floatPurr();
   if (navigator.vibrate) { try { navigator.vibrate([12, 40, 12, 40, 12, 40, 12]); } catch (e) {} }
   if (!G) return;
@@ -1019,7 +1087,9 @@ cat.addEventListener("click", () => {
   resetPose();
   state = "happy";
   setPupils(0, 0);
-  happyTl = G.timeline({ onComplete: () => { state = "idle"; happyTl = null; } })
+  if (zone === "left" || zone === "right") return petSide(zone === "left" ? -1 : 1);
+  if (zone === "neck") return petNeck();
+  happyTl = G.timeline({ onComplete: endPet })
     .to(".lid", { scaleY: 1, duration: .12 })
     .to("#eyesHappy", { opacity: 1, duration: .12 }, "<")
     .to("#head", { rotation: 7, svgOrigin: "100 112", duration: .35, ease: "sine.inOut" }, 0)
