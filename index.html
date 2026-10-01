@@ -22,7 +22,7 @@
   --ground-rim: rgba(255, 214, 170, .28);
   --grass: #5a7184;
   --mw-opacity: .5;
-  --aurora-opacity: .4;
+  --aurora-opacity: .22;
   --ink: #f6f2fc;
   --ink-soft: rgba(246, 242, 252, 0.78);
   --panel: #fbf7fd;
@@ -51,7 +51,7 @@
     --ground-rim: rgba(190, 205, 255, .2);
     --grass: #2f5450;
     --mw-opacity: 1;
-    --aurora-opacity: 1;
+    --aurora-opacity: .5;
     --panel: #1e2044;
     --panel-ink: #eeeaf8;
     --panel-soft: #aba5c7;
@@ -61,7 +61,7 @@
 }
 :root[data-theme="dark"] {
   --mw-opacity: 1;
-  --aurora-opacity: 1;
+  --aurora-opacity: .5;
   --sky-top: #0b1030;
   --sky-mid: #1b1a45;
   --sky-bottom: #352857;
@@ -1035,7 +1035,7 @@ function buildAurora() {
       grad.appendChild(el("stop", { offset: [0, .3, .62, .9, 1][i], "stop-color": c, "stop-opacity": o }));
     });
     const blur = el("filter", { id: "aurB" + idx, x: "-10%", y: "-20%", width: "120%", height: "140%" });
-    blur.appendChild(el("feGaussianBlur", { stdDeviation: "3 1.4" }));
+    blur.appendChild(el("feGaussianBlur", { stdDeviation: "4 2" }));
     defs.append(grad, blur);
     const g = el("g", { filter: `url(#aurB${idx})` });
     for (let x = 0; x < VW; x += 5 + r() * 6) {
