@@ -1158,28 +1158,65 @@ window.addEventListener("pointermove", e => {
   setPupils(vx / len * 2.6 * k, vy / len * 1.6 * k);
 });
 
+/* ---------- Sonido ---------- */
 let actx = null;
+function audio() {
+  if (!actx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    // iPhone: que suene aunque el interruptor de silencio esté activado (Safari 17+)
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+    actx = new AC();
+  }
+  return actx;
+}
+// Los móviles solo permiten activar el audio durante un toque: se activa en el primero
+function unlockAudio() {
+  const ctx = audio();
+  if (!ctx) return;
+  if (ctx.state !== "running") ctx.resume().catch(() => {});
+  try {                                   // un instante de silencio "desbloquea" iOS
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, 22050);
+    src.connect(ctx.destination); src.start(0);
+  } catch (e) {}
+}
+["pointerdown", "touchend", "keydown"].forEach(t => addEventListener(t, unlockAudio, { once: true, capture: true }));
+
 function purrSound(dur = 1.7) {
+  const ctx = audio();
+  if (!ctx) return;
+  if (ctx.state !== "running") { ctx.resume().then(() => playPurr(ctx, dur)).catch(() => {}); return; }
+  playPurr(ctx, dur);
+}
+// Ronroneo: ruido en pulsos de ~25 por segundo, con el timbre en frecuencias
+// que el parlante de un teléfono sí reproduce (no solo graves).
+function playPurr(ctx, dur) {
   try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    if (actx.state === "suspended") actx.resume();
-    const t = actx.currentTime;
-    const buf = actx.createBuffer(1, Math.floor(actx.sampleRate * dur), actx.sampleRate);
+    const t = ctx.currentTime + .02;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const src = actx.createBufferSource(); src.buffer = buf;
-    const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 340;
-    const am = actx.createGain(); am.gain.value = .5;
-    const lfo = actx.createOscillator(); lfo.frequency.value = 24;
-    const lfoGain = actx.createGain(); lfoGain.gain.value = .5;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 140;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1100; lp.Q.value = .7;
+    // respiración: el timbre sube y baja suavemente
+    const breath = ctx.createOscillator(); breath.frequency.value = 1.3;
+    const breathGain = ctx.createGain(); breathGain.gain.value = 350;
+    breath.connect(breathGain); breathGain.connect(lp.frequency);
+    // pulsos del ronroneo
+    const am = ctx.createGain(); am.gain.value = .5;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 25;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = .5;
     lfo.connect(lfoGain); lfoGain.connect(am.gain);
-    const env = actx.createGain();
+    const env = ctx.createGain();
     env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(.4, t + .25);
-    env.gain.setValueAtTime(.4, t + dur - .45);
+    env.gain.linearRampToValueAtTime(.9, t + .25);
+    env.gain.setValueAtTime(.9, t + dur - .45);
     env.gain.linearRampToValueAtTime(0, t + dur);
-    src.connect(lp); lp.connect(am); am.connect(env); env.connect(actx.destination);
-    lfo.start(t); src.start(t); lfo.stop(t + dur); src.stop(t + dur);
+    const comp = ctx.createDynamicsCompressor();
+    src.connect(hp); hp.connect(lp); lp.connect(am); am.connect(env); env.connect(comp); comp.connect(ctx.destination);
+    [lfo, breath, src].forEach(n => { n.start(t); n.stop(t + dur); });
   } catch (e) { /* sin sonido */ }
 }
 function floatPurr() {
