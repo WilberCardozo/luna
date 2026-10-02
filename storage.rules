@@ -6,7 +6,9 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /videos/{file} {
       allow read: if true;
-      allow create: if request.resource.size < 200 * 1024 * 1024
+      // resource == null: solo archivos nuevos, nunca sobrescribir uno existente
+      allow create: if resource == null
+        && request.resource.size < 200 * 1024 * 1024
         && request.resource.contentType.matches('video/.*');
       allow update, delete: if false;
     }
