@@ -321,6 +321,7 @@ dialog::backdrop { background: rgba(8, 9, 30, .62); }
 dialog[open] { animation: popin .45s cubic-bezier(.22, .8, .3, 1); }
 @keyframes popin { from { opacity: 0; transform: translateY(14px) scale(.96); } }
 .memory-photo { display: block; width: 100%; max-height: 52vh; object-fit: cover; }
+.memory-photo[hidden] { display: none; }
 .memory-video { display: block; width: 100%; max-height: 60vh; background: #000; }
 .memory-video[hidden] { display: none; }
 .dlg-body { padding: 22px 24px 20px; }
@@ -1191,13 +1192,13 @@ function openMemory(id) {
   const img = document.getElementById("memoryPhoto");
   const vid = document.getElementById("memoryVideo");
   if (m.video) {
-    img.removeAttribute("src"); img.hidden = true;
+    img.removeAttribute("src"); img.alt = ""; img.hidden = true;
     if (m.poster) vid.poster = m.poster; else vid.removeAttribute("poster");
     vid.src = m.video; vid.hidden = false;
   } else {
     vid.pause(); vid.removeAttribute("src"); vid.removeAttribute("poster"); vid.load(); vid.hidden = true;
     if (m.photo) { img.src = m.photo; img.alt = "Foto de " + CONFIG.name; img.hidden = false; }
-    else { img.removeAttribute("src"); img.hidden = true; }
+    else { img.removeAttribute("src"); img.alt = ""; img.hidden = true; }
   }
   document.getElementById("memoryText").textContent = m.text || "";
   document.getElementById("memoryDate").textContent = m.date
