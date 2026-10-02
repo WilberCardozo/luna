@@ -321,6 +321,8 @@ dialog::backdrop { background: rgba(8, 9, 30, .62); }
 dialog[open] { animation: popin .45s cubic-bezier(.22, .8, .3, 1); }
 @keyframes popin { from { opacity: 0; transform: translateY(14px) scale(.96); } }
 .memory-photo { display: block; width: 100%; max-height: 52vh; object-fit: cover; }
+.memory-video { display: block; width: 100%; max-height: 60vh; background: #000; }
+.memory-video[hidden] { display: none; }
 .dlg-body { padding: 22px 24px 20px; }
 .memory-text {
   margin: 0;
@@ -365,6 +367,11 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 .photo-pick .btn { display: inline-block; margin: 0; color: var(--panel-ink); }
 .photo-pick input:focus-visible + .btn { outline: 2px solid var(--btn); outline-offset: 2px; }
 .preview { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; }
+.preview-wrap { position: relative; display: inline-block; }
+.preview-wrap .play { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 1.3rem; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); pointer-events: none; }
+.preview-wrap .play[hidden] { display: none; }
+.progress { margin: 12px 0 0; font-size: .9rem; color: var(--panel-soft); }
+.progress[hidden] { display: none; }
 .preview[hidden] { display: none; }
 .form-msg { min-height: 1.3em; margin: 12px 0 0; font-size: .9rem; color: var(--danger); }
 
@@ -635,6 +642,7 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
 
 <dialog id="memoryDlg" aria-labelledby="memoryText">
   <img class="memory-photo" id="memoryPhoto" alt="" hidden>
+  <video class="memory-video" id="memoryVideo" controls playsinline preload="metadata" hidden></video>
   <div class="dlg-body">
     <p class="memory-text" id="memoryText"></p>
     <p class="memory-date" id="memoryDate"></p>
@@ -651,10 +659,11 @@ textarea:focus { outline: 2px solid var(--btn); outline-offset: 1px; }
     <label for="memInput">¿Qué recuerdas de ella?</label>
     <textarea id="memInput" maxlength="600" placeholder="Una maña, su lugar favorito para dormir, algo que te hacía reír…"></textarea>
     <div class="photo-pick">
-      <input type="file" id="photoInput" accept="image/*">
-      <label for="photoInput" class="btn">Agregar una foto</label>
-      <img class="preview" id="preview" alt="Vista previa de la foto" hidden>
+      <input type="file" id="photoInput" accept="image/*,video/*">
+      <label for="photoInput" class="btn">Agregar foto o video</label>
+      <span class="preview-wrap"><img class="preview" id="preview" alt="Vista previa" hidden><span class="play" id="previewPlay" aria-hidden="true" hidden>▶</span></span>
     </div>
+    <p class="progress" id="uploadProgress" role="status" aria-live="polite" hidden></p>
     <p class="form-msg" id="formMsg" role="alert"></p>
     <div class="dlg-actions">
       <button class="btn" type="button" id="cancelAdd">Cancelar</button>
@@ -1122,7 +1131,7 @@ function render(newId) {
   let freshStar = null;
   list.forEach((m, i) => {
     const [x, y] = starPos(m, i);
-    const preview = (m.text || "Una foto").slice(0, 60);
+    const preview = (m.text || (m.video ? "Un video" : "Una foto")).slice(0, 60);
     const g = el("g", {
       class: "star" + (m.id === newId ? " fresh" : ""),
       role: "button",
@@ -1180,8 +1189,16 @@ function openMemory(id) {
   if (!m) return;
   openId = id; confirmDelete = false;
   const img = document.getElementById("memoryPhoto");
-  if (m.photo) { img.src = m.photo; img.alt = "Foto de " + CONFIG.name; img.hidden = false; }
-  else { img.removeAttribute("src"); img.hidden = true; }
+  const vid = document.getElementById("memoryVideo");
+  if (m.video) {
+    img.removeAttribute("src"); img.hidden = true;
+    if (m.poster) vid.poster = m.poster; else vid.removeAttribute("poster");
+    vid.src = m.video; vid.hidden = false;
+  } else {
+    vid.pause(); vid.removeAttribute("src"); vid.removeAttribute("poster"); vid.load(); vid.hidden = true;
+    if (m.photo) { img.src = m.photo; img.alt = "Foto de " + CONFIG.name; img.hidden = false; }
+    else { img.removeAttribute("src"); img.hidden = true; }
+  }
   document.getElementById("memoryText").textContent = m.text || "";
   document.getElementById("memoryDate").textContent = m.date
     ? "Guardado el " + new Date(m.date).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })
@@ -1191,6 +1208,7 @@ function openMemory(id) {
   memoryDlg.showModal();
 }
 document.getElementById("closeMemory").addEventListener("click", () => memoryDlg.close());
+memoryDlg.addEventListener("close", () => document.getElementById("memoryVideo").pause());
 memoryDlg.addEventListener("click", e => { if (e.target === memoryDlg) memoryDlg.close(); });
 deleteBtn.addEventListener("click", () => {
   if (!confirmDelete) { confirmDelete = true; deleteBtn.textContent = "Toca otra vez para borrar"; return; }
@@ -1214,11 +1232,15 @@ const formMsg = document.getElementById("formMsg");
 let pendingPhoto = null;
 
 document.getElementById("addBtn").addEventListener("click", () => {
-  form.reset(); pendingPhoto = null; preview.hidden = true; formMsg.textContent = "";
+  form.reset(); pendingPhoto = null; pendingVideo = null; preview.hidden = true; previewPlay.hidden = true;
+  formMsg.textContent = ""; uploadProgress.hidden = true;
   addDlg.showModal();
   memInput.focus();
 });
-document.getElementById("cancelAdd").addEventListener("click", () => addDlg.close());
+document.getElementById("cancelAdd").addEventListener("click", () => {
+  if (uploading && !confirm("El video se está subiendo. ¿Cancelar de todas formas?")) return;
+  addDlg.close();
+});
 
 function compress(file) {
   return new Promise((resolve, reject) => {
@@ -1238,10 +1260,62 @@ function compress(file) {
     img.src = url;
   });
 }
+const previewPlay = document.getElementById("previewPlay");
+const uploadProgress = document.getElementById("uploadProgress");
+const saveBtn = document.getElementById("saveBtn");
+const MAX_VIDEO_MB = 200;
+let pendingVideo = null;                    // { file, poster }
+
+// Primer cuadro del video como portada (imagen pequeña para la vista previa)
+function videoPoster(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto";
+    const done = res => { URL.revokeObjectURL(url); resolve(res); };
+    const timer = setTimeout(() => done(null), 8000);
+    v.addEventListener("loadeddata", () => { v.currentTime = Math.min(.5, (v.duration || 1) / 3); }, { once: true });
+    v.addEventListener("seeked", () => {
+      clearTimeout(timer);
+      try {
+        const s = Math.min(1, 480 / Math.max(v.videoWidth, v.videoHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        done(c.toDataURL("image/jpeg", .7));
+      } catch (e) { done(null); }
+    }, { once: true });
+    v.addEventListener("error", () => { clearTimeout(timer); done(null); }, { once: true });
+    v.src = url;
+  });
+}
+
 photoInput.addEventListener("change", async () => {
   const file = photoInput.files && photoInput.files[0];
   if (!file) return;
   formMsg.textContent = "";
+  pendingPhoto = null; pendingVideo = null; previewPlay.hidden = true;
+  if (file.type.startsWith("video/")) {
+    if (!cloud || !cloud.uploadVideo) {
+      preview.hidden = true;
+      formMsg.textContent = "Para guardar videos hace falta la conexión con la nube.";
+      return;
+    }
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      preview.hidden = true;
+      formMsg.textContent = `Ese video pesa ${Math.round(file.size / 1048576)} MB; el máximo es ${MAX_VIDEO_MB} MB. Prueba con uno más corto.`;
+      return;
+    }
+    const poster = await videoPoster(file);
+    pendingVideo = { file, poster };
+    if (poster) { preview.src = poster; preview.hidden = false; previewPlay.hidden = false; }
+    else { preview.hidden = true; formMsg.textContent = ""; }
+    const mb = file.size / 1048576;
+    uploadProgress.textContent = "Video listo (" + (mb < 1 ? Math.max(1, Math.round(file.size / 1024)) + " KB" : Math.round(mb) + " MB") + ")";
+    uploadProgress.hidden = false;
+    return;
+  }
+  uploadProgress.hidden = true;
   try {
     pendingPhoto = await compress(file);
     preview.src = pendingPhoto; preview.hidden = false;
@@ -1250,11 +1324,28 @@ photoInput.addEventListener("change", async () => {
     formMsg.textContent = "No se pudo abrir esa imagen. Prueba con otra foto.";
   }
 });
-form.addEventListener("submit", e => {
+let uploading = false;
+form.addEventListener("submit", async e => {
   e.preventDefault();
+  if (uploading) return;
   const text = memInput.value.trim();
-  if (!text && !pendingPhoto) { formMsg.textContent = "Escribe algo o agrega una foto para guardar el recuerdo."; return; }
+  if (!text && !pendingPhoto && !pendingVideo) { formMsg.textContent = "Escribe algo o agrega una foto o un video para guardar el recuerdo."; return; }
   const m = { id: "m-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text, photo: pendingPhoto, date: new Date().toISOString() };
+  if (pendingVideo) {
+    uploading = true; saveBtn.disabled = true; formMsg.textContent = "";
+    uploadProgress.hidden = false; uploadProgress.textContent = "Subiendo video… 0 %";
+    try {
+      m.video = await cloud.uploadVideo(pendingVideo.file, m.id,
+        pct => { uploadProgress.textContent = "Subiendo video… " + Math.round(pct) + " %"; });
+      m.poster = pendingVideo.poster;
+    } catch (err) {
+      formMsg.textContent = "No se pudo subir el video. Revisa la conexión e inténtalo de nuevo.";
+      uploadProgress.hidden = true;
+      return;
+    } finally {
+      uploading = false; saveBtn.disabled = false;
+    }
+  }
   userMemories.push(m);
   if (cloud) {
     cloud.add(m).catch(() => {
@@ -1773,13 +1864,17 @@ if (FIREBASE_CONFIG && window.Cielo) {
     const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
             collection, doc, setDoc, updateDoc, onSnapshot, query, orderBy } =
       await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+    const { getStorage, ref, uploadBytesResumable, getDownloadURL } =
+      await import(`https://www.gstatic.com/firebasejs/${V}/firebase-storage.js`);
 
     const app = initializeApp(FIREBASE_CONFIG);
     // caché local: los recuerdos se ven al instante y se guardan aunque no haya señal
     const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
     const col = collection(db, "memories");
+    const storage = getStorage(app);
     const Cielo = window.Cielo;
-    const clean = m => ({ text: m.text || "", photo: m.photo || null, date: m.date || new Date().toISOString(), deleted: false });
+    const clean = m => ({ text: m.text || "", photo: m.photo || null, date: m.date || new Date().toISOString(), deleted: false,
+                          video: m.video || null, poster: m.poster || null });
 
     // Subir los recuerdos que estaban solo en este navegador
     const local = Cielo.localMemories();
@@ -1792,15 +1887,24 @@ if (FIREBASE_CONFIG && window.Cielo) {
     Cielo.connect({
       add: m => setDoc(doc(col, m.id), clean(m)),
       // borrar = ocultar: el recuerdo sigue en Firebase y se puede recuperar
-      remove: id => updateDoc(doc(col, id), { deleted: true })
+      remove: id => updateDoc(doc(col, id), { deleted: true }),
+      // sube el video a Storage y devuelve su dirección pública
+      uploadVideo: (file, id, onProgress) => new Promise((resolve, reject) => {
+        const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "mp4";
+        const task = uploadBytesResumable(ref(storage, `videos/${id}.${ext}`), file, { contentType: file.type || "video/mp4" });
+        task.on("state_changed",
+          snap => onProgress(snap.totalBytes ? snap.bytesTransferred / snap.totalBytes * 100 : 0),
+          reject,
+          () => getDownloadURL(task.snapshot.ref).then(resolve, reject));
+      })
     });
     onSnapshot(query(col, orderBy("date")),
       snap => {
         // la caché aún vacía no debe "borrar" lo que ya se ve mientras llega la nube
         if (snap.empty && snap.metadata.fromCache) return;
         Cielo.setMemories(snap.docs.filter(d => !d.data().deleted).map(d => {
-        const { text, photo, date } = d.data();
-        return { id: d.id, text, photo, date };
+        const { text, photo, date, video, poster } = d.data();
+        return { id: d.id, text, photo, date, video, poster };
       }));
       },
       () => Cielo.toast("No se pudieron leer los recuerdos de la nube.", 4000));

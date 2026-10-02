@@ -9,7 +9,7 @@ service cloud.firestore {
     match /memories/{memoryId} {
       allow read: if true;
 
-      allow create: if request.resource.data.keys().hasOnly(['text', 'photo', 'date', 'deleted'])
+      allow create: if request.resource.data.keys().hasOnly(['text', 'photo', 'date', 'deleted', 'video', 'poster'])
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 600
         && request.resource.data.date is string
@@ -17,7 +17,15 @@ service cloud.firestore {
         && request.resource.data.deleted == false
         && (request.resource.data.photo == null
             || (request.resource.data.photo is string
-                && request.resource.data.photo.size() < 900000));
+                && request.resource.data.photo.size() < 900000))
+        // video: dirección del archivo en Firebase Storage; poster: portada pequeña
+        && (!('video' in request.resource.data) || request.resource.data.video == null
+            || (request.resource.data.video is string
+                && request.resource.data.video.size() < 2000
+                && request.resource.data.video.matches('https://firebasestorage[.]googleapis[.]com/.*')))
+        && (!('poster' in request.resource.data) || request.resource.data.poster == null
+            || (request.resource.data.poster is string
+                && request.resource.data.poster.size() < 300000));
 
       // solo se permite cambiar "deleted" (ocultar o volver a mostrar)
       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleted'])

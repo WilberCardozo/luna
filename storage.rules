@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Videos de los recuerdos: cualquiera con el enlace puede verlos y subir
+// videos nuevos, pero nadie puede reemplazar ni borrar uno existente.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /videos/{file} {
+      allow read: if true;
+      allow create: if request.resource.size < 200 * 1024 * 1024
+        && request.resource.contentType.matches('video/.*');
+      allow update, delete: if false;
+    }
+  }
+}
