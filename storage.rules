@@ -1,7 +1,7 @@
 rules_version = '2';
 
-// Videos de los recuerdos: cualquiera con el enlace puede verlos y subir
-// videos nuevos, pero nadie puede reemplazar ni borrar uno existente.
+// Videos y fotos de los recuerdos: cualquiera con el enlace puede verlos y subir
+// archivos nuevos, pero nadie puede reemplazar ni borrar uno existente.
 service firebase.storage {
   match /b/{bucket}/o {
     match /videos/{file} {
@@ -10,6 +10,15 @@ service firebase.storage {
       allow create: if resource == null
         && request.resource.size < 200 * 1024 * 1024
         && request.resource.contentType.matches('video/.*');
+      allow update, delete: if false;
+    }
+
+    // Fotos de los recuerdos (ya comprimidas por la página): mismas reglas
+    match /fotos/{file} {
+      allow read: if true;
+      allow create: if resource == null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
       allow update, delete: if false;
     }
   }

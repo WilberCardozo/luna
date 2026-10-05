@@ -198,8 +198,7 @@ h1 {
 }
 .count { margin: 8px 0 0; font-size: .95rem; color: var(--ink-soft); }
 
-/* Constelación: el cielo ocupa toda la pantalla y se recorre arrastrando.
-   .sky-frame marca la zona "de casa" (sobre la gata) y define la escala. */
+
 .sky-frame {
   position: absolute;
   left: 0; right: 0;
@@ -1346,6 +1345,20 @@ form.addEventListener("submit", async e => {
     } finally {
       uploading = false; saveBtn.disabled = false;
     }
+  } else if (pendingPhoto && cloud && cloud.uploadPhoto) {
+    // con la nube, la foto va a Storage (fotos/) y el recuerdo guarda solo su dirección
+    uploading = true; saveBtn.disabled = true; formMsg.textContent = "";
+    uploadProgress.hidden = false; uploadProgress.textContent = "Subiendo foto… 0 %";
+    try {
+      m.photo = await cloud.uploadPhoto(pendingPhoto, m.id,
+        pct => { uploadProgress.textContent = "Subiendo foto… " + Math.round(pct) + " %"; });
+    } catch (err) {
+      formMsg.textContent = "No se pudo subir la foto. Revisa la conexión e inténtalo de nuevo.";
+      uploadProgress.hidden = true;
+      return;
+    } finally {
+      uploading = false; saveBtn.disabled = false;
+    }
   }
   userMemories.push(m);
   if (cloud) {
@@ -1843,11 +1856,7 @@ if (G && !REDUCE) {
 }
 </script>
 
-<!-- ===== Nube: Firebase (Firestore, sin inicio de sesión) =====
-     Pega aquí la configuración de tu app web de Firebase (Configuración del
-     proyecto → Tus apps). Mientras sea null, los recuerdos se guardan solo en
-     este navegador, como antes. Estos datos son públicos por diseño; las
-     reglas de firestore.rules impiden eliminar o reescribir recuerdos. -->
+
 <script type="module">
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCEjbQ-1hqgyUmaHqbwhJ0qqzOzM33qPZE",
@@ -1873,6 +1882,13 @@ if (FIREBASE_CONFIG && window.Cielo) {
     const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
     const col = collection(db, "memories");
     const storage = getStorage(app);
+    const upload = (path, data, contentType, onProgress) => new Promise((resolve, reject) => {
+      const task = uploadBytesResumable(ref(storage, path), data, { contentType });
+      task.on("state_changed",
+        snap => onProgress(snap.totalBytes ? snap.bytesTransferred / snap.totalBytes * 100 : 0),
+        reject,
+        () => getDownloadURL(task.snapshot.ref).then(resolve, reject));
+    });
     const Cielo = window.Cielo;
     const clean = m => ({ text: m.text || "", photo: m.photo || null, date: m.date || new Date().toISOString(), deleted: false,
                           video: m.video || null, poster: m.poster || null });
@@ -1890,14 +1906,13 @@ if (FIREBASE_CONFIG && window.Cielo) {
       // borrar = ocultar: el recuerdo sigue en Firebase y se puede recuperar
       remove: id => updateDoc(doc(col, id), { deleted: true }),
       // sube el video a Storage y devuelve su dirección pública
-      uploadVideo: (file, id, onProgress) => new Promise((resolve, reject) => {
+      uploadVideo: (file, id, onProgress) => {
         const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "mp4";
-        const task = uploadBytesResumable(ref(storage, `videos/${id}.${ext}`), file, { contentType: file.type || "video/mp4" });
-        task.on("state_changed",
-          snap => onProgress(snap.totalBytes ? snap.bytesTransferred / snap.totalBytes * 100 : 0),
-          reject,
-          () => getDownloadURL(task.snapshot.ref).then(resolve, reject));
-      })
+        return upload(`videos/${id}.${ext}`, file, file.type || "video/mp4", onProgress);
+      },
+      // la foto ya comprimida (data URL) se sube como fotos/<id>.jpg
+      uploadPhoto: (dataUrl, id, onProgress) =>
+        fetch(dataUrl).then(r => r.blob()).then(blob => upload(`fotos/${id}.jpg`, blob, "image/jpeg", onProgress))
     });
     onSnapshot(query(col, orderBy("date")),
       snap => {
