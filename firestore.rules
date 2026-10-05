@@ -28,16 +28,8 @@ service cloud.firestore {
                 && request.resource.data.poster.size() < 300000));
 
       // solo se permite cambiar "deleted" (ocultar o volver a mostrar)
-      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleted'])
-          && request.resource.data.deleted is bool)
-        // TEMPORAL (traspaso de fotos a Storage): cambiar una foto incrustada
-        // por la dirección de su archivo en Storage. Quitar al terminar.
-        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo'])
-          && resource.data.photo is string
-          && resource.data.photo.matches('data:image/.*')
-          && request.resource.data.photo is string
-          && request.resource.data.photo.size() < 2000
-          && request.resource.data.photo.matches('https://firebasestorage[.]googleapis[.]com/.*'));
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deleted'])
+        && request.resource.data.deleted is bool;
 
       allow delete: if false;
     }
